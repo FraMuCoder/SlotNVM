@@ -14,6 +14,10 @@
 
 #ifdef __AVR_ARCH__
   #define _SLOTNVM_FLASHMEM_ PROGMEM
+
+  #ifdef E2END /* EEPROM available */
+    #include "ArduinoEEPROM.h"
+  #endif
 #endif
 
 #ifndef _SLOTNVM_FLASHMEM_
@@ -128,6 +132,12 @@ private:
 
     bool nextFreeCluster(uint8_t &nextCluster);
 };
+
+#if defined(__AVR_ARCH__) && defined(E2END)
+  typedef SlotNVM<ArduinoEEPROM<>, 16> SlotNVM16;
+  typedef SlotNVM<ArduinoEEPROM<>, 32> SlotNVM32;
+  typedef SlotNVM<ArduinoEEPROM<>, 64> SlotNVM64;
+#endif
 
 template <class BASE, address_t CLUSTER_SIZE>
 const uint8_t SlotNVM<BASE, CLUSTER_SIZE>::S_AGE_BITS_TO_OLDEST[] _SLOTNVM_FLASHMEM_ = {
