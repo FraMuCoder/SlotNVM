@@ -12,6 +12,14 @@
 #include <string.h>
 #include "NVMBase.h"
 
+#ifdef __AVR_ARCH__
+  #define _SLOTNVM_FLASHMEM_ PROGMEM
+#endif
+
+#ifndef _SLOTNVM_FLASHMEM_
+  #define _SLOTNVM_FLASHMEM_
+#endif
+
 /*
  * Byte
  *  0       Slot No. (0 .. 250)
@@ -122,7 +130,7 @@ private:
 };
 
 template <class BASE, address_t CLUSTER_SIZE>
-const uint8_t SlotNVM<BASE, CLUSTER_SIZE>::S_AGE_BITS_TO_OLDEST[] = {
+const uint8_t SlotNVM<BASE, CLUSTER_SIZE>::S_AGE_BITS_TO_OLDEST[] _SLOTNVM_FLASHMEM_ = {
         0xF0,   // _ _ _ _  => 0    Error (no age)
         0x00,   // 1 _ _ _  => 0    OK
         0x01,   // _ 1 _ _  => 1    OK
@@ -218,7 +226,12 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::begin() {
 
         // check validity of all founded start cluster beginning with the oldest
         while (!foundValid && (firstClusterMask > 0)) {
-            uint8_t oldes = S_AGE_BITS_TO_OLDEST[firstClusterMask] & 0x03;
+            uint8_t oldes;
+#ifdef __AVR_ARCH__
+            oldes = pgm_read_byte(S_AGE_BITS_TO_OLDEST + firstClusterMask) & 0x03;
+#else
+            oldes = S_AGE_BITS_TO_OLDEST[firstClusterMask] & 0x03;
+#endif
             memset(validCluster, 0, sizeof(validCluster));
 
             uint8_t startCluster = firstCluster[oldes];
