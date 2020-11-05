@@ -47,6 +47,8 @@ CPPUNIT_TEST( test_writeSlot_02 );
 CPPUNIT_TEST( test_eraseSlot_00 );
 CPPUNIT_TEST( test_eraseSlot_01 );
 
+CPPUNIT_TEST( test_getFree_00 );
+
 CPPUNIT_TEST( test_nextFreeCluster );
 
 CPPUNIT_TEST_SUITE_END();
@@ -412,6 +414,24 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+    }
+
+    void test_getFree_00() {
+        bool ret = tinyNVM->begin();
+        CPPUNIT_ASSERT( ret );
+
+        size_t total = tinyNVM->getSize();
+        CPPUNIT_ASSERT( total == (64/8)*(8-6) );
+
+        size_t free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == total );
+
+        uint8_t data[] = { 0xC1, 0xC2 };
+        ret = tinyNVM->writeSlot(1, data, sizeof(data));
+        CPPUNIT_ASSERT( ret );
+
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == total-(8-6) );
     }
 
     void test_nextFreeCluster() {
