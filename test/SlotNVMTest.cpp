@@ -34,6 +34,7 @@ CPPUNIT_TEST( test_begin_06 );
 CPPUNIT_TEST( test_begin_07 );
 CPPUNIT_TEST( test_begin_08 );
 CPPUNIT_TEST( test_begin_09 );
+CPPUNIT_TEST( test_begin_10 );
 
 CPPUNIT_TEST( test_readSlot_01 );
 CPPUNIT_TEST( test_readSlot_02 );
@@ -211,12 +212,24 @@ public:
     void test_begin_09() {
         // too many cluster for data length
         setTinyCluster(0, 1, 2, 2, true, 1);
-        setTinyCluster(0, 1, 2, 2, false);
+        setTinyCluster(1, 1, 2, 2, false);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+    }
+
+    void test_begin_10() {
+        // check m_maxSlotLen
+        setTinyCluster(0, 1, 2, 6, true, 1);    // more and newer data but incomplete
+        setTinyCluster(1, 1, 1, 2);             // less and older data but valid
+        bool ret = tinyNVM->begin();
+        CPPUNIT_ASSERT( ret );
+        CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
+        CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 2 );
+        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 2 );
+        CPPUNIT_ASSERT( tinyNVM->m_maxSlotLen == 1 );
     }
 
     void test_readSlot_01() {

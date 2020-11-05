@@ -192,10 +192,6 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::begin() {
         // we have found a valid cluster
         setClusterBit(cluster);
         setSlotBit(slot);
-
-        res = this->read(c_addr + 3, d);                                // read user data size
-        if (!res) return false;
-        if (d > m_maxSlotLen) m_maxSlotLen = d; // ToDo store this only after slot validity check
     }
 
     // check slot validity
@@ -290,6 +286,9 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::begin() {
 
             if (!err) {                                                 // we have a winner
                 foundValid = true;
+                if (startLen > m_maxSlotLen) {
+                    m_maxSlotLen =startLen;
+                }
             } else {
                 firstClusterMask &= ~(1 << oldes);
             }
