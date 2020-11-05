@@ -64,9 +64,9 @@ public:
 
     bool begin();
 
-    bool writeSlot(uint8_t slot, uint8_t *data, size_t len);
+    bool writeSlot(uint8_t slot, const uint8_t *data, size_t len);
 
-    bool readSlot(uint8_t slot, uint8_t *data, size_t &len);
+    bool readSlot(uint8_t slot, uint8_t *data, size_t &len) const;
 
     bool eraseSlot(uint8_t slot);
 
@@ -92,11 +92,11 @@ private:
         clearClusterBit(m_usedCluster, cluster);
     }
 
-    inline bool isClusterBitSet(uint8_t usedCluster[S_CLUSTER_CNT / 8], uint8_t cluster) {
+    inline bool isClusterBitSet(const uint8_t usedCluster[S_CLUSTER_CNT / 8], uint8_t cluster) const {
         return (usedCluster[cluster / 8] & (1 << (cluster % 8))) != 0;
     }
 
-    inline bool isClusterBitSet(uint8_t cluster) {
+    inline bool isClusterBitSet(uint8_t cluster) const {
         return isClusterBitSet(m_usedCluster, cluster);
     }
 
@@ -116,11 +116,11 @@ private:
         clearSlotBit(m_slotAvail, slot);
     }
 
-    inline bool isSlotBitSet(uint8_t slotAvail[256 / 8], uint8_t slot) {
+    inline bool isSlotBitSet(const uint8_t slotAvail[256 / 8], uint8_t slot) const {
         return (slotAvail[slot / 8] & (1 << (slot % 8))) != 0;
     }
 
-    inline bool isSlotBitSet(uint8_t slot) {
+    inline bool isSlotBitSet(uint8_t slot) const {
         return isSlotBitSet(m_slotAvail, slot);
     }
 
@@ -128,9 +128,9 @@ private:
 
     bool clearClusters(uint8_t firstCluster);
 
-    bool findStartCluser(uint8_t slot, uint8_t &startCluster);
+    bool findStartCluser(uint8_t slot, uint8_t &startCluster) const;
 
-    bool nextFreeCluster(uint8_t &nextCluster);
+    bool nextFreeCluster(uint8_t &nextCluster) const;
 };
 
 #if defined(__AVR_ARCH__) && defined(E2END)
@@ -312,7 +312,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::begin() {
 }
 
 template <class BASE, address_t CLUSTER_SIZE>
-bool SlotNVM<BASE, CLUSTER_SIZE>::writeSlot(uint8_t slot, uint8_t *data, size_t len) {
+bool SlotNVM<BASE, CLUSTER_SIZE>::writeSlot(uint8_t slot, const uint8_t *data, size_t len) {
     if (!m_initDone) return false;
     if (data == NULL) return false;
     if (len < 1) return false;
@@ -391,7 +391,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::writeSlot(uint8_t slot, uint8_t *data, size_t 
 }
 
 template <class BASE, address_t CLUSTER_SIZE>
-bool SlotNVM<BASE, CLUSTER_SIZE>::readSlot(uint8_t slot, uint8_t *data, size_t &len) {
+bool SlotNVM<BASE, CLUSTER_SIZE>::readSlot(uint8_t slot, uint8_t *data, size_t &len) const {
     if (!m_initDone) return false;
     if (data == NULL) return false;
 
@@ -478,7 +478,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::clearClusters(uint8_t firstCluster) {
 }
 
 template <class BASE, address_t CLUSTER_SIZE>
-bool SlotNVM<BASE, CLUSTER_SIZE>::findStartCluser(uint8_t slot, uint8_t &startCluster) {
+bool SlotNVM<BASE, CLUSTER_SIZE>::findStartCluser(uint8_t slot, uint8_t &startCluster) const {
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
         if (!isClusterBitSet(cluster)) continue;                    // skip unused
         address_t c_addr = cluster * CLUSTER_SIZE;
@@ -502,7 +502,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::findStartCluser(uint8_t slot, uint8_t &startCl
 }
 
 template <class BASE, address_t CLUSTER_SIZE>
-bool SlotNVM<BASE, CLUSTER_SIZE>::nextFreeCluster(uint8_t &nextCluster) {
+bool SlotNVM<BASE, CLUSTER_SIZE>::nextFreeCluster(uint8_t &nextCluster) const {
     if (nextCluster > S_CLUSTER_CNT) nextCluster = S_CLUSTER_CNT;
     uint16_t startCluster = nextCluster;
     ++nextCluster;

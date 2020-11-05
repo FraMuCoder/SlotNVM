@@ -25,9 +25,9 @@ public:
 
     bool erase(address_t start, address_t len);
 
-    bool read(address_t addr, uint8_t &data);
+    bool read(address_t addr, uint8_t &data) const;
 
-    bool read(address_t addr, uint8_t *data, address_t len);
+    bool read(address_t addr, uint8_t *data, address_t len) const;
 
     bool write(address_t addr, uint8_t data);
 
@@ -47,7 +47,7 @@ bool ArduinoEEPROM<SIZE>::erase(address_t start, address_t len) {
 }
 
 template <address_t SIZE>
-bool ArduinoEEPROM<SIZE>::read(address_t addr, uint8_t &data) {
+bool ArduinoEEPROM<SIZE>::read(address_t addr, uint8_t &data) const {
     if (addr < SIZE) {
         data = EEPROM[addr];
         return true;
@@ -57,7 +57,7 @@ bool ArduinoEEPROM<SIZE>::read(address_t addr, uint8_t &data) {
 }
 
 template <address_t SIZE>
-bool ArduinoEEPROM<SIZE>::read(address_t addr, uint8_t *data, address_t len) {
+bool ArduinoEEPROM<SIZE>::read(address_t addr, uint8_t *data, address_t len) const {
     if ((addr < SIZE) && (data != NULL)) {
         for (address_t i = 0; i < len; ++i) {
             data[i] = EEPROM[addr + i];

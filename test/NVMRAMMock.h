@@ -29,15 +29,15 @@ public:
 
     bool erase(address_t start, address_t len);
 
-    bool read(address_t addr, uint8_t &data);
+    bool read(address_t addr, uint8_t &data) const;
 
-    bool read(address_t addr, uint8_t *data, address_t len);
+    bool read(address_t addr, uint8_t *data, address_t len) const;
 
     bool write(address_t addr, uint8_t data);
 
     bool write(address_t addr, const uint8_t *data, address_t len);
 
-    void dump();
+    void dump() const;
 
 private:
     std::vector<uint8_t>    m_memory;
@@ -72,7 +72,7 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::erase(address_t sta
 }
 
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t &data) {
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t &data) const {
     if (addr < SIZE) {
         data = m_memory[addr];
         return true;
@@ -82,7 +82,7 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr
 }
 
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t *data, address_t len) {
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t *data, address_t len) const {
     if ((addr < SIZE) && (data != NULL)) {
         std::memcpy(data, &m_memory[addr], len);
         return true;
@@ -133,7 +133,7 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t add
 }
 
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dump() {
+void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dump() const {
     const address_t blockSize = 16;
     for (address_t i = 0; i < (SIZE / blockSize); ++i) {
         std::cout << std::hex << std::setfill('0') << std::right;
