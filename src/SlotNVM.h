@@ -330,6 +330,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE>::writeSlot(uint8_t slot, const uint8_t *data, s
     if (data == NULL) return false;
     if (len < 1) return false;
     if (len > 256) return false;
+    if (getFree() < len) return false;
     uint8_t oldStartCluster;
     address_t cAddr;
     uint8_t d[4];
