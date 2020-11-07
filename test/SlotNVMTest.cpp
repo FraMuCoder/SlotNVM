@@ -5,10 +5,14 @@
  * SPDX-License-Identifier: MIT
  */
 
-#ifndef _SLOTNVM_SLOTNVMTEST_H_
-#define _SLOTNVM_SLOTNVMTEST_H_
-
-#include <cppunit/extensions/HelperMacros.h>
+// include all headers needed by classes under test before define private and protected as public
+#include <iostream>
+#include <vector>
+#include <stdint.h>
+#include <string.h>
+#include <cstdint>
+#include <cstring>
+#include <iomanip>
 
 // make all public just for testing
 #define private public
@@ -20,6 +24,9 @@
 // and reset defines
 #undef private
 #undef protected
+
+#include <cppunit/extensions/HelperMacros.h>
+
 
 class SlotNVMTest : public CppUnit::TestFixture  {
 
@@ -483,5 +490,3 @@ public:
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION( SlotNVMTest );
-
-#endif // _SLOTNVM_SLOTNVMTEST_H_
