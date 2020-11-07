@@ -56,33 +56,22 @@ CPPUNIT_TEST( doRndTest );
 CPPUNIT_TEST_SUITE_END();
 
 private:
-    SlotNVMtoTest      *m_slotNVM;
-    unsigned            m_cntWrite;
-    unsigned            m_cntErase;
-    std::vector<std::vector<uint8_t>>   m_oldData;
-    std::vector<std::vector<uint8_t>>   m_newData;
-    std::random_device  m_rndDev;
-    std::mt19937        m_rndGen;
-    std::discrete_distribution<>    m_rndCmdDist;
-    std::uniform_int_distribution<> m_rndSlotDist;
-    std::uniform_int_distribution<> m_rndByteDist;
-
-//    void runTest(unsigned cnt);
-
-//    void testWrite();
-//    void testErase();
-
-//    bool fullTest();
-//    bool nvmTest(SlotNVMtoTest &toTest);
-
-//    void reset();
+    SlotNVMtoTest                      *m_slotNVM;
+    unsigned                            m_cntWrite;
+    unsigned                            m_cntErase;
+    std::vector<std::vector<uint8_t>>   m_slotData;
+    std::random_device                  m_rndDev;
+    std::mt19937                        m_rndGen;
+    std::discrete_distribution<>        m_rndCmdDist;
+    std::uniform_int_distribution<>     m_rndSlotDist;
+    std::uniform_int_distribution<>     m_rndByteDist;
 
 public:
 
     RandomTest()
         : m_slotNVM(NULL)
         , m_rndGen(m_rndDev())
-        , m_rndCmdDist({5000, 2500}) // write, erase
+        , m_rndCmdDist({500, 250, 5}) // write, erase, writeErr
         , m_rndSlotDist(1, 250)
         , m_rndByteDist(0, 255)
     {}
@@ -96,7 +85,7 @@ public:
 
         m_slotNVM->begin();
 
-        std::cout << "Start a test..." << std::endl;
+        //std::cout << "Start random test..." << std::endl;
 
         for (unsigned c = 0; c < cnt; c++) {
             switch (m_rndCmdDist(m_rndGen)) {
@@ -108,10 +97,13 @@ public:
                 ++m_cntErase;
                 testErase();
                 break;
+            case 2: // write error
+                m_slotNVM->setWriteErrorAfterXbytes(m_rndByteDist(m_rndGen));
+                break;
             }
         }
 
-        std::cout << "Test end (write:" << m_cntWrite << ", erase:" << m_cntErase << ")" << std::endl;
+        //std::cout << "Test end (write:" << m_cntWrite << ", erase:" << m_cntErase << ")" << std::endl;
     }
 
     void testWrite() {
@@ -125,20 +117,17 @@ public:
             data[i] = m_rndByteDist(m_rndGen);
         }
 
-        m_oldData[slot-1] = std::move<>(m_newData[slot-1]);
-        m_newData[slot-1] = data;
-
         bool res = m_slotNVM->writeSlot(slot, &data[0], len);
 
-        if (!res) {
-            m_newData[slot-1] = std::move<>(m_oldData[slot-1]);
-        } else {
-            m_newData[slot-1] = data;
+        if (res) {
+            m_slotData[slot-1] = data;
         }
+
         if (!fullTest()) {
-            std::cout << "Write slot " << slot << " error!" << std::endl;
+            std::cout << "Write slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
             dumpData(m_slotNVM->m_memory, "NVM after: ");
+            CPPUNIT_ASSERT( false );
         }
 
     }
@@ -149,13 +138,13 @@ public:
         bool res = m_slotNVM->eraseSlot(slot);
 
         if (res) {
-            m_oldData[slot-1].clear();
-            m_newData[slot-1].clear();
+            m_slotData[slot-1].clear();
         }
         if (!fullTest()) {
-            std::cout << "Erase slot " << slot << " error!" << std::endl;
+            std::cout << "Erase slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
             dumpData(m_slotNVM->m_memory, "NVM after: ");
+            CPPUNIT_ASSERT( false );
         }
     }
 
@@ -180,14 +169,14 @@ public:
 
             if (res) {
                 data.resize(len);
-                if (m_newData[slot-1] != data) {
-                    dumpData(m_newData[slot-1], "expected: ");
+                if (m_slotData[slot-1] != data) {
+                    dumpData(m_slotData[slot-1], "expected: ");
                     dumpData(data, "read: ");
                     return false;
                 }
             } else {
-                if (m_newData[slot-1].size() != 0) {
-                    dumpData(m_newData[slot-1], "expected: ");
+                if (m_slotData[slot-1].size() != 0) {
+                    dumpData(m_slotData[slot-1], "expected: ");
                     std::cout << "read: -";
                     return false;
                 }
@@ -201,10 +190,8 @@ public:
         if (m_slotNVM) delete m_slotNVM;
         m_slotNVM = new SlotNVMtoTest;
         m_cntWrite = m_cntErase = 0;
-        m_oldData.clear();
-        m_oldData.resize(250);
-        m_newData.clear();
-        m_newData.resize(250);
+        m_slotData.clear();
+        m_slotData.resize(250);
     }
 };
 

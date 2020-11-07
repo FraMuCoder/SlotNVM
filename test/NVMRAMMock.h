@@ -37,11 +37,16 @@ public:
 
     bool write(address_t addr, const uint8_t *data, address_t len);
 
+    void setWriteErrorAfterXbytes(address_t bytes) {
+        m_writeErrorAfterXbytes = bytes;
+    }
+
     void dump() const;
 
 private:
     std::vector<uint8_t>    m_memory;
     std::vector<size_t>     m_writeCount;
+    address_t               m_writeErrorAfterXbytes;
 };
 
 
@@ -94,6 +99,12 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
 bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t addr, uint8_t data) {
     if (addr < SIZE) {
+        if (m_writeErrorAfterXbytes > 0) {
+            --m_writeErrorAfterXbytes;
+            if (m_writeErrorAfterXbytes == 0) {
+                return false;
+            }
+        }
         if (NEED_ERASE) {
             if (DEFAULT_VALUE == 0xFF) {
                 m_memory[addr] &= data;
@@ -113,18 +124,9 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t add
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
 bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t addr, const uint8_t *data, address_t len) {
     if ((addr < SIZE) && (data != NULL)) {
-        for (address_t i = 0; (i < len) && ((addr+i) < SIZE); ++i) {
-            if (NEED_ERASE) {
-            
-                if (DEFAULT_VALUE == 0xFF) {
-                    m_memory[addr+i] &= data[i];
-                } else {
-                    m_memory[addr+i] |= data[i];
-                }
-            } else {
-                m_memory[addr+i] = data[i];
-                ++(m_writeCount[addr+i]);
-            }
+        for (address_t i = 0; i < len; ++i) {
+            bool ret = write(addr+i, data[i]);
+            if (!ret) return false;
         }
         return true;
     } else {
