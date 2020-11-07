@@ -58,6 +58,8 @@ CPPUNIT_TEST( test_getFree_00 );
 
 CPPUNIT_TEST( test_nextFreeCluster );
 
+CPPUNIT_TEST( test_provision );
+
 CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -230,7 +232,7 @@ public:
     }
 
     void test_begin_10() {
-        // check m_maxSlotLen
+        // like test_begin_05 but reverse cluster order
         setTinyCluster(0, 1, 2, 6, true, 1);    // more and newer data but incomplete
         setTinyCluster(1, 1, 1, 2);             // less and older data but valid
         bool ret = tinyNVM->begin();
@@ -238,7 +240,6 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 2 );
         CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 2 );
-        CPPUNIT_ASSERT( tinyNVM->m_maxSlotLen == 1 );
     }
 
     void test_readSlot_01() {
@@ -485,6 +486,75 @@ public:
         ret = tinyNVM->nextFreeCluster(nextCluster);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( nextCluster == 2 );
+    }
+
+    void test_provision() {
+        // no provision
+        bool ret = tinyNVM->begin();
+        CPPUNIT_ASSERT( ret );
+        size_t free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 16 );
+
+        uint8_t data[] = { 0xC1, 0xC2, 0xC3, 0xC4 };
+        ret = tinyNVM->writeSlot(1, data, sizeof(data));    // now 2/8 cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 12 );
+        ret = tinyNVM->writeSlot(2, data, sizeof(data));    // now 4/8 cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 8 );
+        ret = tinyNVM->writeSlot(3, data, sizeof(data));    // now 6/8 cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 4 );
+        ret = tinyNVM->writeSlot(4, data, 2);               // now 7/8 cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 2 );
+        ret = tinyNVM->writeSlot(5, data, sizeof(data));    // not possible
+        CPPUNIT_ASSERT( !ret );
+        ret = tinyNVM->writeSlot(6, data, 2);               // now 8/8 cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyNVM->getFree();
+        CPPUNIT_ASSERT( free == 0 );
+        ret = tinyNVM->writeSlot(7, data, 2);               // not possible
+        CPPUNIT_ASSERT( !ret );
+
+        // with provision
+        // Provision is 3 bytes but is rouded to next S_USER_DATA_PER_CLUSTER, so it is set to 4
+        SlotNVM<NVMRAMMock<64>, 8, 3> tinyWithProvision;
+        ret = tinyWithProvision.begin();
+        CPPUNIT_ASSERT( ret );
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 12 );
+
+        ret = tinyWithProvision.writeSlot(1, data, sizeof(data));    // now 2/(6+2) cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 8 );
+        ret = tinyWithProvision.writeSlot(2, data, sizeof(data));    // now 4/(6+2) cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 4 );
+        ret = tinyWithProvision.writeSlot(3, data, sizeof(data));    // now 6/(6+2) cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 0 );
+        ret = tinyWithProvision.writeSlot(4, data, 2);               // not possible
+        CPPUNIT_ASSERT( !ret );
+        ret = tinyWithProvision.writeSlot(3, data, 1);               // rewrite psoible now 5/(6+2) cluster used
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 2 );
+        CPPUNIT_ASSERT( ret );
+        ret = tinyWithProvision.writeSlot(5, data, sizeof(data));    // not possible
+        CPPUNIT_ASSERT( !ret );
+        ret = tinyWithProvision.writeSlot(6, data, 2);               // now 6/(6+2) cluser used
+        CPPUNIT_ASSERT( ret );
+        free = tinyWithProvision.getFree();
+        CPPUNIT_ASSERT( free == 0 );
+        ret = tinyWithProvision.writeSlot(7, data, 2);               // not possible
+        CPPUNIT_ASSERT( !ret );
     }
 
 };
