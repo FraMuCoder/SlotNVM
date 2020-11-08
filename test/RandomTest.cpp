@@ -129,13 +129,27 @@ public:
             data[i] = m_rndByteDist(m_rndGen);
         }
 
-        bool res = toTest.writeSlot(slot, &data[0], len);
+        bool res;
+
+        try {
+            res = toTest.writeSlot(slot, &data[0], len);
+        } catch (PowerLostException) {
+            // we lose the power while write access, so we need to start again
+            toTest.m_initDone = false;
+            std::memset(toTest.m_slotAvail, 0, sizeof(toTest.m_slotAvail));
+            std::memset(toTest.m_usedCluster, 0, sizeof(toTest.m_usedCluster));
+            res = toTest.begin();
+            CPPUNIT_ASSERT( res );
+            res = false;
+        }
 
         if (res) {
             m_slotData[slot-1] = data;
         }
 
-        if (!fullTest(toTest)) {
+        // Note: an error while writing does not automatically mean new data is missing
+        // maybe just erasing old data was not finished
+        if (!fullTest(toTest, slot, &data)) {
             std::cout << "Write slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
             dumpData(toTest.m_memory, "NVM after: ");
@@ -148,12 +162,26 @@ public:
     void testErase(T &toTest) {
         uint8_t slot = m_rndSlotDist(m_rndGen);
         std::vector<uint8_t> before = toTest.m_memory;
-        bool res = toTest.eraseSlot(slot);
+        bool res;
+        try {
+            res = toTest.eraseSlot(slot);
+        } catch (PowerLostException) {
+            // we lose the power while write access, so we need to start again
+            toTest.m_initDone = false;
+            std::memset(toTest.m_slotAvail, 0, sizeof(toTest.m_slotAvail));
+            std::memset(toTest.m_usedCluster, 0, sizeof(toTest.m_usedCluster));
+            res = toTest.begin();
+            CPPUNIT_ASSERT( res );
+            res = false;
+        }
 
         if (res) {
             m_slotData[slot-1].clear();
         }
-        if (!fullTest(toTest)) {
+
+        // Note: an error while erasing does not automatically mean data is still there
+        // maybe just part of the data is erased, but than the slot is already invalid and not readable anymore
+        if (!fullTest(toTest, slot)) {
             std::cout << "Erase slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
             dumpData(toTest.m_memory, "NVM after: ");
@@ -162,8 +190,8 @@ public:
     }
 
     template <class T>
-    bool fullTest(T &toTest) {
-        bool res = nvmTest(toTest);
+    bool fullTest(T &toTest, uint8_t activeSlot, std::vector<uint8_t> *written = NULL) {
+        bool res = nvmTest(toTest, activeSlot, written);
         if (!res) return res;
 
         T newTestObj;
@@ -171,11 +199,11 @@ public:
         res = newTestObj.begin();
         if (!res) return res;
 
-        return nvmTest(newTestObj);
+        return nvmTest(newTestObj, activeSlot, written);
     }
 
     template <class T>
-    bool nvmTest(T &toTest) {
+    bool nvmTest(T &toTest, uint8_t activeSlot, std::vector<uint8_t> *written = NULL) {
         for (int slot = 1; slot <= 250; ++slot) {
             std::vector<uint8_t> data(256);
             size_t len = data.size();
@@ -185,15 +213,23 @@ public:
             if (res) {
                 data.resize(len);
                 if (m_slotData[slot-1] != data) {
-                    dumpData(m_slotData[slot-1], "expected: ");
-                    dumpData(data, "read: ");
-                    return false;
-                }
+                    if ((slot == activeSlot) && (written != NULL) && (*written == data)) {
+                        m_slotData[slot-1] = *written;                  // write was interrupted while erasing old data
+                    } else {
+                        dumpData(m_slotData[slot-1], "expected: ");
+                        dumpData(data, "read: ");
+                        return false;
+                    }
+                } 
             } else {
                 if (m_slotData[slot-1].size() != 0) {
-                    dumpData(m_slotData[slot-1], "expected: ");
-                    std::cout << "read: -";
-                    return false;
+                    if ((slot == activeSlot) && (written == NULL)) {    // erase was interrupted but still OK
+                        m_slotData[slot-1].clear();
+                    } else {
+                        dumpData(m_slotData[slot-1], "expected: ");
+                        std::cout << "read: -" << std::endl;
+                        return false;
+                    }
                 }
             }
         }

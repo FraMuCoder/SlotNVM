@@ -13,8 +13,12 @@
 #include <cstring>
 #include <iostream>
 #include <iomanip>
+#include <exception>
 #include "NVMBase.h"
 
+class PowerLostException : public std::exception {
+
+};
 
 template <address_t SIZE, bool NEED_ERASE = false, uint8_t DEFAULT_VALUE = 0xFF, address_t PAGE_SIZE = 128>
 class NVMRAMMock {
@@ -103,6 +107,7 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t add
         if (m_writeErrorAfterXbytes > 0) {
             --m_writeErrorAfterXbytes;
             if (m_writeErrorAfterXbytes == 0) {
+                throw PowerLostException();
                 return false;
             }
         }
