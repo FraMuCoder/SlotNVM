@@ -54,6 +54,7 @@ template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE
 NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::NVMRAMMock()
     : m_memory(SIZE, DEFAULT_VALUE)
     , m_writeCount(SIZE)
+    , m_writeErrorAfterXbytes(0)
 {}
 
 template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>

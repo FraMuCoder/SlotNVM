@@ -28,8 +28,13 @@
 #include <random>
 #include <cppunit/extensions/HelperMacros.h>
 
+// dumy
+static uint8_t dummyCRC(uint8_t crc, uint8_t data) {
+    return crc ^ data;
+}
 
-typedef SlotNVM<NVMRAMMock<1024>, 32> SlotNVMtoTest;
+typedef SlotNVM<NVMRAMMock<1024>, 32>               SlotNVMtoTest;
+typedef SlotNVM<NVMRAMMock<1024>, 32, 0, &dummyCRC> SlotNVMcrcToTest;
 
 void dumpData(std::vector<uint8_t> &data , const std::string &str = "") {
     std::cout << str << std::dec << "[" << data.size() << "]" << std::hex << std::setfill('0') << std::right;
@@ -51,12 +56,12 @@ class RandomTest : public CppUnit::TestFixture {
 
 CPPUNIT_TEST_SUITE( RandomTest );
 
-CPPUNIT_TEST( doRndTest );
+CPPUNIT_TEST( doRndNoCrcTest );
+CPPUNIT_TEST( doRndWithCrcTest );
 
 CPPUNIT_TEST_SUITE_END();
 
 private:
-    SlotNVMtoTest                      *m_slotNVM;
     unsigned                            m_cntWrite;
     unsigned                            m_cntErase;
     std::vector<std::vector<uint8_t>>   m_slotData;
@@ -69,21 +74,27 @@ private:
 public:
 
     RandomTest()
-        : m_slotNVM(NULL)
-        , m_rndGen(m_rndDev())
+        : m_rndGen(m_rndDev())
         , m_rndCmdDist({500, 250, 5}) // write, erase, writeErr
         , m_rndSlotDist(1, 250)
         , m_rndByteDist(0, 255)
     {}
 
-    void doRndTest() {
-        runTest(5000);
+    void doRndNoCrcTest() {
+        SlotNVMtoTest toTest;
+        runTest(toTest, 5000);
     }
 
-    void runTest(unsigned cnt) {
+    void doRndWithCrcTest() {
+        SlotNVMcrcToTest toTest;
+        runTest(toTest, 5000);
+    }
+
+    template <class T>
+    void runTest(T &toTest, unsigned cnt) {
         reset();
 
-        m_slotNVM->begin();
+        toTest.begin();
 
         //std::cout << "Start random test..." << std::endl;
 
@@ -91,14 +102,14 @@ public:
             switch (m_rndCmdDist(m_rndGen)) {
             case 0: // write
                 ++m_cntWrite;
-                testWrite();
+                testWrite(toTest);
                 break;
             case 1: // erase
                 ++m_cntErase;
-                testErase();
+                testErase(toTest);
                 break;
             case 2: // write error
-                m_slotNVM->setWriteErrorAfterXbytes(m_rndByteDist(m_rndGen));
+                toTest.setWriteErrorAfterXbytes(m_rndByteDist(m_rndGen));
                 break;
             }
         }
@@ -106,61 +117,65 @@ public:
         //std::cout << "Test end (write:" << m_cntWrite << ", erase:" << m_cntErase << ")" << std::endl;
     }
 
-    void testWrite() {
+    template <class T>
+    void testWrite(T &toTest) {
         uint8_t slot = m_rndSlotDist(m_rndGen);
         size_t len = m_rndByteDist(m_rndGen) + 1;
         std::vector<uint8_t> data(len);
-        std::vector<uint8_t> before = m_slotNVM->m_memory;
+        std::vector<uint8_t> before = toTest.m_memory;
 
 
         for (size_t i = 0; i < len; ++i) {
             data[i] = m_rndByteDist(m_rndGen);
         }
 
-        bool res = m_slotNVM->writeSlot(slot, &data[0], len);
+        bool res = toTest.writeSlot(slot, &data[0], len);
 
         if (res) {
             m_slotData[slot-1] = data;
         }
 
-        if (!fullTest()) {
+        if (!fullTest(toTest)) {
             std::cout << "Write slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
-            dumpData(m_slotNVM->m_memory, "NVM after: ");
+            dumpData(toTest.m_memory, "NVM after: ");
             CPPUNIT_ASSERT( false );
         }
 
     }
 
-    void testErase() {
+    template <class T>
+    void testErase(T &toTest) {
         uint8_t slot = m_rndSlotDist(m_rndGen);
-        std::vector<uint8_t> before = m_slotNVM->m_memory;
-        bool res = m_slotNVM->eraseSlot(slot);
+        std::vector<uint8_t> before = toTest.m_memory;
+        bool res = toTest.eraseSlot(slot);
 
         if (res) {
             m_slotData[slot-1].clear();
         }
-        if (!fullTest()) {
+        if (!fullTest(toTest)) {
             std::cout << "Erase slot " << std::dec << (int)slot << " error!" << std::endl;
             dumpData(before, "NVM before:");
-            dumpData(m_slotNVM->m_memory, "NVM after: ");
+            dumpData(toTest.m_memory, "NVM after: ");
             CPPUNIT_ASSERT( false );
         }
     }
 
-    bool fullTest() {
-        bool res = nvmTest(*m_slotNVM);
+    template <class T>
+    bool fullTest(T &toTest) {
+        bool res = nvmTest(toTest);
         if (!res) return res;
 
-        SlotNVMtoTest newTestObj;
-        newTestObj.m_memory = m_slotNVM->m_memory;
+        T newTestObj;
+        newTestObj.m_memory = toTest.m_memory;
         res = newTestObj.begin();
         if (!res) return res;
 
         return nvmTest(newTestObj);
     }
 
-    bool nvmTest(SlotNVMtoTest &toTest) {
+    template <class T>
+    bool nvmTest(T &toTest) {
         for (int slot = 1; slot <= 250; ++slot) {
             std::vector<uint8_t> data(256);
             size_t len = data.size();
@@ -187,8 +202,6 @@ public:
     }
 
     void reset() {
-        if (m_slotNVM) delete m_slotNVM;
-        m_slotNVM = new SlotNVMtoTest;
         m_cntWrite = m_cntErase = 0;
         m_slotData.clear();
         m_slotData.resize(250);

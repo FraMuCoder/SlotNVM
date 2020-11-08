@@ -27,6 +27,18 @@
 
 #include <cppunit/extensions/HelperMacros.h>
 
+// dumy
+static uint8_t dummyCRC(uint8_t crc, uint8_t data) {
+    return crc ^ data;
+}
+
+static uint8_t dummyCRCbuf(const uint8_t *data, size_t len) {
+    uint8_t crc = 0;
+    for (; len > 0; --len,++data) {
+        crc = dummyCRC(crc, *data);
+    }
+}
+
 
 class SlotNVMTest : public CppUnit::TestFixture  {
 
@@ -60,15 +72,19 @@ CPPUNIT_TEST( test_nextFreeCluster );
 
 CPPUNIT_TEST( test_provision );
 
+CPPUNIT_TEST( test_CRC );
+
 CPPUNIT_TEST_SUITE_END();
 
 private:
-    SlotNVM<NVMRAMMock<64>, 8>      *tinyNVM;
+    typedef SlotNVM<NVMRAMMock<64>, 8, 0, &dummyCRC> TinyNVM_t;
+    typedef SlotNVM<NVMRAMMock<64>, 8>               TinyNVMnoCRC_t;
+    TinyNVM_t                       *tinyNVM;
     SlotNVM<NVMRAMMock<256>, 16>    *smallNVM;
     SlotNVM<NVMRAMMock<1024>, 32>   *mediumNVM;
 public:
     void setUp() {
-        tinyNVM = new SlotNVM<NVMRAMMock<64>, 8>;
+        tinyNVM = new TinyNVM_t;
         smallNVM = new SlotNVM<NVMRAMMock<256>, 16>;
         mediumNVM = new SlotNVM<NVMRAMMock<1024>, 32>;  
     }
@@ -79,6 +95,9 @@ public:
         delete mediumNVM;
     }
 
+    /**
+     * @length  For first cluster real data length, for other count of user bytes in this cluster
+     */
     void setTinyCluster(uint8_t cluster, uint8_t slot, uint8_t age = 0, uint16_t length = 2, 
                         bool isFirst = true, int16_t nextCluster = -1,
                         uint8_t dataA = 0xAB, uint8_t dataB = 0xCD) {
@@ -88,11 +107,14 @@ public:
                                        | (isFirst ? 0x20 : 0x00)
                                        | ((nextCluster < 0) ? 0x10 : 0x00);
         tinyNVM->m_memory[address + 2] = (nextCluster < 0) ? cluster : nextCluster;
-        tinyNVM->m_memory[address + 3] = length - 1;
+        tinyNVM->m_memory[address + 3] = isFirst ? length - 1 : length;
         tinyNVM->m_memory[address + 4] = dataA;
         tinyNVM->m_memory[address + 5] = dataB;
-        tinyNVM->m_memory[address + 6] = 0xFF;
-        tinyNVM->m_memory[address + 7] = 0xA5;
+        if (isFirst) {
+            if (length > 2) length = 2;
+        }
+        tinyNVM->m_memory[address + 6] = dummyCRCbuf(&tinyNVM->m_memory[address + 0], 4 + length);
+        tinyNVM->m_memory[address + 7] = 0xA1;
     }
 
     void test_begin() {
@@ -103,7 +125,7 @@ public:
         // bad format but repairable
         smallNVM->m_memory[0]  = 0x01;
         smallNVM->m_memory[1]  = 0x20;
-        smallNVM->m_memory[15] = 0xA5;
+        smallNVM->m_memory[15] = 0xA0;
         ret = smallNVM->begin();
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( smallNVM->m_memory[0] == 0 );
@@ -136,8 +158,8 @@ public:
     void test_begin_02() {
         // more data in one slot
         setTinyCluster(0, 1, 0, 6, true, 3);
-        setTinyCluster(1, 1, 0, 6, false);
-        setTinyCluster(3, 1, 0, 6, false, 1);
+        setTinyCluster(1, 1, 0, 2, false);
+        setTinyCluster(3, 1, 0, 2, false, 1);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 1 );
@@ -199,8 +221,8 @@ public:
     void test_begin_07() {
         // cluster loop
         setTinyCluster(2, 1, 0, 6, true, 3);
-        setTinyCluster(3, 1, 0, 6, false, 4);
-        setTinyCluster(4, 1, 0, 6, false, 3);
+        setTinyCluster(3, 1, 0, 2, false, 4);
+        setTinyCluster(4, 1, 0, 2, false, 3);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 0 );
@@ -260,8 +282,8 @@ public:
     void test_readSlot_02() {
         // more data
         setTinyCluster(0, 1, 0, 5, true, 1, 0xA1, 0xA2);
-        setTinyCluster(1, 1, 0, 5, false, 2, 0xA3, 0xA4);
-        setTinyCluster(2, 1, 0, 5, false, -1, 0xA5);
+        setTinyCluster(1, 1, 0, 2, false, 2, 0xA3, 0xA4);
+        setTinyCluster(2, 1, 0, 1, false, -1, 0xA5);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
 
@@ -319,7 +341,7 @@ public:
         CPPUNIT_ASSERT( dataR[1] == data[1] );
 
         // is it still readable after restart, test it with an other SlotNVM instance
-        SlotNVM<NVMRAMMock<64>, 8> tinyNVM2;
+        TinyNVM_t tinyNVM2;
         tinyNVM2.m_memory = tinyNVM->m_memory;
 
         ret = tinyNVM2.begin();
@@ -335,7 +357,7 @@ public:
 
     void test_writeSlot_01() {
         setTinyCluster(0, 1, 0, 4, true, 2, 0xA1, 0xA2);
-        setTinyCluster(2, 1, 0, 4, false, -1, 0xA3);
+        setTinyCluster(2, 1, 0, 2, false, -1, 0xA3);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
 
@@ -377,7 +399,7 @@ public:
         CPPUNIT_ASSERT( dataR[4] == data[4] );
 
         // is it still readable after restart, test it with an other SlotNVM instance
-        SlotNVM<NVMRAMMock<64>, 8> tinyNVM2;
+        TinyNVM_t tinyNVM2;
         tinyNVM2.m_memory = tinyNVM->m_memory;
 
         ret = tinyNVM2.begin();
@@ -410,7 +432,7 @@ public:
 
     void test_eraseSlot_01() {
         setTinyCluster(0, 1, 0, 4, true, 2);
-        setTinyCluster(2, 1, 0, 4, false);
+        setTinyCluster(2, 1, 0, 2, false);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
 
@@ -523,7 +545,7 @@ public:
 
         // with provision
         // Provision is 3 bytes but is rouded to next S_USER_DATA_PER_CLUSTER, so it is set to 4
-        SlotNVM<NVMRAMMock<64>, 8, 3> tinyWithProvision;
+        SlotNVM<NVMRAMMock<64>, 8, 3, dummyCRC> tinyWithProvision;
         ret = tinyWithProvision.begin();
         CPPUNIT_ASSERT( ret );
         free = tinyWithProvision.getFree();
@@ -557,6 +579,23 @@ public:
         CPPUNIT_ASSERT( !ret );
     }
 
+    void test_CRC() {
+        TinyNVMnoCRC_t noCRCslotNVM;
+        bool ret = noCRCslotNVM.begin();
+        CPPUNIT_ASSERT( ret );
+
+        size_t free = noCRCslotNVM.getFree();
+        CPPUNIT_ASSERT( free == 24 );
+
+        // invalid CRC
+        setTinyCluster(0, 1);
+        tinyNVM->m_memory[6]++; // crash the CRC
+        ret = tinyNVM->begin();
+        CPPUNIT_ASSERT( ret );
+
+        ret = tinyNVM->isSlotAvailable(1);
+        CPPUNIT_ASSERT( !ret );
+    }
 };
 
 CPPUNIT_TEST_SUITE_REGISTRATION( SlotNVMTest );
