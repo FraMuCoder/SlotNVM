@@ -68,17 +68,19 @@ CPPUNIT_TEST( test_eraseSlot_01 );
 
 CPPUNIT_TEST( test_getFree_00 );
 
-CPPUNIT_TEST( test_nextFreeCluster );
+CPPUNIT_TEST( test_nextFreeCluster_00 );
 
-CPPUNIT_TEST( test_provision );
+CPPUNIT_TEST( test_provision_00 );
 
-CPPUNIT_TEST( test_CRC );
+CPPUNIT_TEST( test_CRC_00 );
+
+CPPUNIT_TEST( test_maxSlots_00 );
 
 CPPUNIT_TEST_SUITE_END();
 
 private:
-    typedef SlotNVM<NVMRAMMock<64>, 8, 0, &dummyCRC> TinyNVM_t;
-    typedef SlotNVM<NVMRAMMock<64>, 8>               TinyNVMnoCRC_t;
+    typedef SlotNVM<NVMRAMMock<64>, 8, 0, 0, &dummyCRC> TinyNVM_t;
+    typedef SlotNVM<NVMRAMMock<64>, 8>                  TinyNVMnoCRC_t;
     TinyNVM_t                       *tinyNVM;
     SlotNVM<NVMRAMMock<256>, 16>    *smallNVM;
     SlotNVM<NVMRAMMock<1024>, 32>   *mediumNVM;
@@ -138,7 +140,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[1*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_01() {
@@ -152,7 +154,9 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[1*8 + 0] == 2 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 3 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0x07 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == (0x07 << 1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(2) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(3) );
     }
 
     void test_begin_02() {
@@ -166,7 +170,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[1*8 + 0] == 1 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[3*8 + 0] == 1 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0x0B );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == (0x01 << 1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_03() {
@@ -178,7 +182,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 1 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0x04 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == (0x01 << 1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_04() {
@@ -191,7 +195,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 1 );
         //CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0x01 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == (0x01 << 1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_05() {
@@ -203,7 +207,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 1 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0x01 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == (0x01 << 1) );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_06() {
@@ -215,7 +219,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[1*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(0) );
     }
 
     void test_begin_07() {
@@ -229,7 +233,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[3*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[4*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_08() {
@@ -239,7 +243,7 @@ public:
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_09() {
@@ -250,7 +254,7 @@ public:
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_begin_10() {
@@ -261,7 +265,7 @@ public:
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 2 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 2 );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
     }
 
     void test_readSlot_01() {
@@ -420,6 +424,7 @@ public:
         setTinyCluster(0, 1);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
 
         // simple erase
         uint8_t data[] = { 0xB1, 0xB2 };
@@ -427,7 +432,7 @@ public:
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_eraseSlot_01() {
@@ -435,6 +440,7 @@ public:
         setTinyCluster(2, 1, 0, 2, false);
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
+        CPPUNIT_ASSERT( tinyNVM->isSlotAvailable(1) );
 
         // simple erase
         uint8_t data[] = { 0xB1, 0xB2 };
@@ -443,7 +449,7 @@ public:
         CPPUNIT_ASSERT( tinyNVM->m_memory[0*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_memory[2*8 + 0] == 0 );
         CPPUNIT_ASSERT( tinyNVM->m_usedCluster[0] == 0 );
-        CPPUNIT_ASSERT( tinyNVM->m_slotAvail[0] == 0 );
+        CPPUNIT_ASSERT( !tinyNVM->isSlotAvailable(1) );
     }
 
     void test_getFree_00() {
@@ -464,7 +470,7 @@ public:
         CPPUNIT_ASSERT( free == total-(8-6) );
     }
 
-    void test_nextFreeCluster() {
+    void test_nextFreeCluster_00() {
         uint8_t nextCluster = 0;
         bool ret = tinyNVM->nextFreeCluster(nextCluster);
         CPPUNIT_ASSERT( ret );
@@ -510,7 +516,7 @@ public:
         CPPUNIT_ASSERT( nextCluster == 2 );
     }
 
-    void test_provision() {
+    void test_provision_00() {
         // no provision
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
@@ -545,7 +551,7 @@ public:
 
         // with provision
         // Provision is 3 bytes but is rouded to next S_USER_DATA_PER_CLUSTER, so it is set to 4
-        SlotNVM<NVMRAMMock<64>, 8, 3, dummyCRC> tinyWithProvision;
+        SlotNVM<NVMRAMMock<64>, 8, 0, 3, dummyCRC> tinyWithProvision;
         ret = tinyWithProvision.begin();
         CPPUNIT_ASSERT( ret );
         free = tinyWithProvision.getFree();
@@ -579,7 +585,7 @@ public:
         CPPUNIT_ASSERT( !ret );
     }
 
-    void test_CRC() {
+    void test_CRC_00() {
         TinyNVMnoCRC_t noCRCslotNVM;
         bool ret = noCRCslotNVM.begin();
         CPPUNIT_ASSERT( ret );
@@ -594,6 +600,28 @@ public:
         CPPUNIT_ASSERT( ret );
 
         ret = tinyNVM->isSlotAvailable(1);
+        CPPUNIT_ASSERT( !ret );
+    }
+
+    void test_maxSlots_00() {
+        bool ret = tinyNVM->begin();
+        CPPUNIT_ASSERT( ret );
+
+        uint8_t data[] = { 1, 2 };
+        // slot 0 not available
+        ret = tinyNVM->writeSlot(0, data, sizeof(data));
+        CPPUNIT_ASSERT( !ret );
+
+        // slot 1 available
+        ret = tinyNVM->writeSlot(1, data, sizeof(data));
+        CPPUNIT_ASSERT( ret );
+
+        // slot 8 available
+        ret = tinyNVM->writeSlot(8, data, sizeof(data));
+        CPPUNIT_ASSERT( ret );
+
+        // slot 9 not available
+        ret = tinyNVM->writeSlot(9, data, sizeof(data));
         CPPUNIT_ASSERT( !ret );
     }
 };

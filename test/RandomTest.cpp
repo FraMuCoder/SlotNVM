@@ -33,8 +33,8 @@ static uint8_t dummyCRC(uint8_t crc, uint8_t data) {
     return crc ^ data;
 }
 
-typedef SlotNVM<NVMRAMMock<1024>, 32>               SlotNVMtoTest;
-typedef SlotNVM<NVMRAMMock<1024>, 32, 0, &dummyCRC> SlotNVMcrcToTest;
+typedef SlotNVM<NVMRAMMock<1024>, 32>                  SlotNVMtoTest;
+typedef SlotNVM<NVMRAMMock<1024>, 32, 0, 0, &dummyCRC> SlotNVMcrcToTest;
 
 void dumpData(std::vector<uint8_t> &data , const std::string &str = "") {
     std::cout << str << std::dec << "[" << data.size() << "]" << std::hex << std::setfill('0') << std::right;
