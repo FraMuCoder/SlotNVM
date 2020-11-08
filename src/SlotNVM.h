@@ -51,7 +51,7 @@
 
 
 /**
- * @tparam BASE             Base class handeling NVM read and write, see NVMBase as example.
+ * @tparam BASE             Base class handling NVM read and write, see NVMBase as example.
  *                          This class also specifies the size of the NVM via member S_SIZE.
  * @tparam CLUSTER_SIZE     Size of a cluster in byte.
  *                          This should not be lower than 7. Typical values are 16, 32, 64, 128, 256.
@@ -84,26 +84,80 @@ public:
 
     SlotNVM();
 
+    /**
+     * Initialize SlotNVM.
+     * Call this once before every other call to SlotNVM. This will check current data of NVM and fix wrong data if found some.
+     * @return  true if NVM data is readable and data structure is OK or fixed.
+     *          false if NVM data is not readable or data structure is corrupt and can not be fixed or begin() is called twice.
+     */
     bool begin();
 
+    /**
+     * Check if begin is called before and returns true.
+     * @return  true if SlotNVM is ready for use.
+     */
     bool isValid() const {
         return m_initDone;
     }
 
+    /**
+     * Check if data is stored for a given slot.
+     * @param slot  Slot number to check,
+     * @return      true if there is data for this slot.
+     */
     bool isSlotAvailable(uint8_t slot) const {
         return isSlotBitSet(slot);
     }
 
+    /**
+     * Write data.
+     * @param slot  Slot number
+     * @param data  Data to write
+     * @param len   Lenght of data to write
+     * @return      true on success else false
+     */
     bool writeSlot(uint8_t slot, const uint8_t *data, size_t len);
 
+    /**
+     * Read data
+     * If buffer is to small, nothing is read but len is set to needed size and false is returned.
+     * So you can set data to NULL and len to 0 to read data length of a slot.
+     * @param           slot    Slot number
+     * @param           data    Buffer to read in
+     * @param[in,out]   len     in:  Size of data
+     *                          out: Length of read data
+     * @return      true on success else false
+     */
     bool readSlot(uint8_t slot, uint8_t *data, size_t &len) const;
 
+    /**
+     * Delete slot data.
+     * @param slot  Slot number
+     * @return      true on success else false
+     */
     bool eraseSlot(uint8_t slot);
 
+    /**
+     * Get amount of total available user data.
+     * Some of this might be reserved as provision for safe overwriting.
+     * @return  Total size in bytes
+     */
     size_t getSize() const {
         return S_CLUSTER_CNT * S_USER_DATA_PER_CLUSTER;
     }
 
+    /**
+     * Get amount of total usable user data.
+     * @return  Usable data size in bytes
+     */
+    size_t getUsableSize() const {
+        return S_CLUSTER_CNT * S_USER_DATA_PER_CLUSTER - S_PROVISION;
+    }
+
+    /**
+     * Get amount of still writable user data.
+     * @return  Free bytes
+     */
     size_t getFree() const;
 
 private:
@@ -506,7 +560,6 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::writeSlot(uint
 template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
 bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::readSlot(uint8_t slot, uint8_t *data, size_t &len) const {
     if (!m_initDone) return false;
-    if (data == NULL) return false;
 
     uint8_t curCluster;
     bool res = findStartCluser(slot, curCluster);
@@ -518,8 +571,12 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::readSlot(uint8
     res = this->read(cAddr + 3, d);                 // read length
     if (!res) return false;
     size_t lenToCopy = d + 1;
-    if (lenToCopy > len) return false;
+    if (lenToCopy > len) {
+        len = lenToCopy;
+        return false;
+    }
     len = lenToCopy;
+    if (data == NULL) return false;
 
     uint8_t flags;
     do {

@@ -317,10 +317,12 @@ public:
 
         ret = tinyNVM->readSlot(1, NULL, size);     // NULL pointer
         CPPUNIT_ASSERT( !ret );
+        CPPUNIT_ASSERT( size == 2 );
 
         size = 1;
         ret = tinyNVM->readSlot(1, data, size);     // buffer to small
         CPPUNIT_ASSERT( !ret );
+        CPPUNIT_ASSERT( size == 2 );
 
         size = sizeof(data);
         ret = tinyNVM->readSlot(2, data, size);     // unused slot
