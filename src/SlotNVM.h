@@ -15,6 +15,8 @@
 #ifdef __AVR_ARCH__
   #define _SLOTNVM_FLASHMEM_ PROGMEM
 
+  #include <util/crc16.h>
+
   #ifdef E2END /* EEPROM available */
     #include "ArduinoEEPROM.h"
   #endif
@@ -55,18 +57,18 @@
  *                          This class also specifies the size of the NVM via member S_SIZE.
  * @tparam CLUSTER_SIZE     Size of a cluster in byte.
  *                          This should not be lower than 7. Typical values are 16, 32, 64, 128, 256.
- * @tparam LAST_SLOT        Number of last usable slot.
- *                          Maximum value is 250.
- *                          0 mean number is equal to count of available cluster.
  * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
  *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
  *                          This value is rounded to next multiple of user data of a cluster.
+ * @tparam LAST_SLOT        Number of last usable slot.
+ *                          Maximum value is 250.
+ *                          0 mean number is equal to count of available cluster.
  * @tparam CRC_FUNC         Function to calculate a 8 bit CRC.
  *                          Prototype must be: uint8_t CRC8_function(uint8_t crc, uint8_t data).
  *                          NULL means not CRC is stored in NVM and therefore one extra data byte per cluster is available.
  */
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT = 0,
-          address_t PROVISION = 0, uint8_t (*CRC_FUNC)(uint8_t crc, uint8_t data) = (uint8_t (*)(uint8_t, uint8_t))NULL>
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION = 0, uint8_t LAST_SLOT = 0,
+          uint8_t (*CRC_FUNC)(uint8_t crc, uint8_t data) = (uint8_t (*)(uint8_t, uint8_t))NULL>
 class SlotNVM : public BASE {
 public:
     static const uint16_t S_CLUSTER_CNT = BASE::S_SIZE / CLUSTER_SIZE;
@@ -119,6 +121,17 @@ public:
     bool writeSlot(uint8_t slot, const uint8_t *data, size_t len);
 
     /**
+     * Write data.
+     * @param slot  Slot number
+     * @param data  Data to write
+     * @return      true on success else false
+     */
+    template <class T>
+    bool writeSlot(uint8_t slot, T &data) {
+      return writeSlot(slot, (const uint8_t *)&data, sizeof(T));
+    }
+
+    /**
      * Read data
      * If buffer is to small, nothing is read but len is set to needed size and false is returned.
      * So you can set data to NULL and len to 0 to read data length of a slot.
@@ -129,6 +142,24 @@ public:
      * @return      true on success else false
      */
     bool readSlot(uint8_t slot, uint8_t *data, size_t &len) const;
+    
+    /**
+     * Read data
+     * If slot stores more or less byte than size of data false is returned and data untouched.
+     * @param           slot    Slot number
+     * @param           data    Data to read in
+     * @return      true on success else false
+     */
+    template <class T>
+    bool readSlot(uint8_t slot, T &data) const {
+      size_t len = 0;
+      readSlot(slot, NULL, len);
+      if (len == sizeof(T)) {
+        return readSlot(slot, (uint8_t *)&data, len);
+      } else {
+        return false;
+      }
+    }
 
     /**
      * Delete slot data.
@@ -241,13 +272,27 @@ private:
 };
 
 #if defined(__AVR_ARCH__) && defined(E2END)
-  typedef SlotNVM<ArduinoEEPROM<>, 16> SlotNVM16;
-  typedef SlotNVM<ArduinoEEPROM<>, 32> SlotNVM32;
-  typedef SlotNVM<ArduinoEEPROM<>, 64> SlotNVM64;
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM16noCRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT> {};
+
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM32noCRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT> {};
+
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM64noCRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT> {};
+
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM16CRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
+
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM32CRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
+
+  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  class SlotNVM64CRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
 #endif
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-const uint8_t SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::S_AGE_BITS_TO_OLDEST[] _SLOTNVM_FLASHMEM_ = {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+const uint8_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::S_AGE_BITS_TO_OLDEST[] _SLOTNVM_FLASHMEM_ = {
         0xF0,   // _ _ _ _  => 0    Error (no age)
         0x00,   // 1 _ _ _  => 0    OK
         0x01,   // _ 1 _ _  => 1    OK
@@ -266,8 +311,8 @@ const uint8_t SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::S_AGE
         0xF3    // 0 1 2 3  => 3    Error three old ones
     };
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::SlotNVM()
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::SlotNVM()
     : m_initDone(false)
     , m_slotAvail{0}
     , m_usedCluster{0}
@@ -275,8 +320,8 @@ SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::SlotNVM()
     // ToDo
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::begin() {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::begin() {
     if (m_initDone) return false;
 
     // first check used cluster and available slots
@@ -451,8 +496,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::begin() {
     return m_initDone;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::writeSlot(uint8_t slot, const uint8_t *data, size_t len) {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::writeSlot(uint8_t slot, const uint8_t *data, size_t len) {
     if (!m_initDone) return false;
     if (data == NULL) return false;
     if (len < 1) return false;
@@ -557,8 +602,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::writeSlot(uint
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::readSlot(uint8_t slot, uint8_t *data, size_t &len) const {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::readSlot(uint8_t slot, uint8_t *data, size_t &len) const {
     if (!m_initDone) return false;
 
     uint8_t curCluster;
@@ -596,8 +641,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::readSlot(uint8
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::eraseSlot(uint8_t slot) {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::eraseSlot(uint8_t slot) {
     if (!m_initDone) return false;
     uint8_t firstCluster;
     bool res = findStartCluser(slot, firstCluster);
@@ -609,8 +654,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::eraseSlot(uint
     return res;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::clearCluster(uint8_t cluster) {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::clearCluster(uint8_t cluster) {
     address_t c_addr = cluster * CLUSTER_SIZE;
     if (this->write(c_addr, 0x00)) {
         clearClusterBit(cluster);
@@ -620,8 +665,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::clearCluster(u
     }
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::clearClusters(uint8_t firstCluster) {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::clearClusters(uint8_t firstCluster) {
     address_t cAddr = firstCluster * CLUSTER_SIZE;
     bool res = this->write(cAddr, 0x00);
     if (!res) return false;
@@ -647,8 +692,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::clearClusters(
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-size_t SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::getFree() const {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+size_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::getFree() const {
     size_t free = getSize();
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
         if (isClusterBitSet(cluster)) {
@@ -662,8 +707,8 @@ size_t SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::getFree() co
     }
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::findStartCluser(uint8_t slot, uint8_t &startCluster) const {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::findStartCluser(uint8_t slot, uint8_t &startCluster) const {
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
         if (!isClusterBitSet(cluster)) continue;                    // skip unused
         address_t c_addr = cluster * CLUSTER_SIZE;
@@ -686,8 +731,8 @@ bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::findStartCluse
     return false;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, uint8_t LAST_SLOT, address_t PROVISION, uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
-bool SlotNVM<BASE, CLUSTER_SIZE, LAST_SLOT, PROVISION, CRC_FUNC>::nextFreeCluster(uint8_t &nextCluster) const {
+template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::nextFreeCluster(uint8_t &nextCluster) const {
     if (nextCluster > S_CLUSTER_CNT) nextCluster = S_CLUSTER_CNT;
     uint16_t startCluster = nextCluster;
     ++nextCluster;

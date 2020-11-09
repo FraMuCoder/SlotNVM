@@ -553,7 +553,7 @@ public:
 
         // with provision
         // Provision is 3 bytes but is rouded to next S_USER_DATA_PER_CLUSTER, so it is set to 4
-        SlotNVM<NVMRAMMock<64>, 8, 0, 3, dummyCRC> tinyWithProvision;
+        SlotNVM<NVMRAMMock<64>, 8, 3, 0, dummyCRC> tinyWithProvision;
         ret = tinyWithProvision.begin();
         CPPUNIT_ASSERT( ret );
         free = tinyWithProvision.getFree();
