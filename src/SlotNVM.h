@@ -70,19 +70,24 @@
 template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION = 0, uint8_t LAST_SLOT = 0,
           uint8_t (*CRC_FUNC)(uint8_t crc, uint8_t data) = (uint8_t (*)(uint8_t, uint8_t))NULL>
 class SlotNVM : public BASE {
+    static_assert(CLUSTER_SIZE <= 256, "CLUSTER_SIZE must be less or equal to 256.");
+    static_assert(LAST_SLOT <= 250, "LAST_SLOT must be less or equal to 250.");
+
 public:
     static const uint16_t S_CLUSTER_CNT = BASE::S_SIZE / CLUSTER_SIZE;
     static const uint8_t S_USER_DATA_PER_CLUSTER = CLUSTER_SIZE - 6 + ((CRC_FUNC == NULL) ? 1 : 0);
     static const uint16_t S_PROVISION = ((PROVISION + S_USER_DATA_PER_CLUSTER - 1) / S_USER_DATA_PER_CLUSTER) * S_USER_DATA_PER_CLUSTER;
     static const uint8_t S_FIRST_SLOT = 1;
-    static const uint8_t S_LAST_SLOT = LAST_SLOT == 0 ? S_CLUSTER_CNT : (LAST_SLOT > 250 ? 250 : LAST_SLOT);
+    static const uint8_t S_LAST_SLOT = LAST_SLOT == 0 ? (S_CLUSTER_CNT > 250 ? 250 : S_CLUSTER_CNT) : (LAST_SLOT > 250 ? 250 : LAST_SLOT);
     static const uint8_t S_END_BYTE = 0xA0 + ((CRC_FUNC == NULL) ? 0 : 1);
     static const uint8_t S_AGE_MASK = 0xC0;
     static const uint8_t S_AGE_SHIFT = 6;
     static const uint8_t S_START_CLUSTER_FLAG = 0x20;
     static const uint8_t S_LAST_CLUSTER_FLAG = 0x10;
     static const uint8_t S_AGE_BITS_TO_OLDEST[];
-    
+
+    static_assert(S_CLUSTER_CNT <= 256, "Max. 256 cluster supported, please increase CLUSTER_SIZE.");
+    static_assert((2*PROVISION) <= (S_USER_DATA_PER_CLUSTER*S_CLUSTER_CNT), "PROVISION must be less or equal to the half of available user data.");    
 
     SlotNVM();
 
@@ -733,7 +738,9 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::findStartCluse
 
 template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,  uint8_t (*CRC_FUNC)(uint8_t, uint8_t)>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC>::nextFreeCluster(uint8_t &nextCluster) const {
-    if (nextCluster > S_CLUSTER_CNT) nextCluster = S_CLUSTER_CNT;
+    if (S_CLUSTER_CNT < 256) {
+        if (nextCluster > S_CLUSTER_CNT) nextCluster = S_CLUSTER_CNT;
+    }
     uint16_t startCluster = nextCluster;
     ++nextCluster;
     while (nextCluster != startCluster) {

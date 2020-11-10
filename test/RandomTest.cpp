@@ -35,6 +35,8 @@ static uint8_t dummyCRC(uint8_t crc, uint8_t data) {
 
 typedef SlotNVM<NVMRAMMock<1024>, 32>                  SlotNVMtoTest;
 typedef SlotNVM<NVMRAMMock<1024>, 32, 0, 0, &dummyCRC> SlotNVMcrcToTest;
+typedef SlotNVM<NVMRAMMock<32*1024>, 256>              SlotNVMtoTestMax1;
+typedef SlotNVM<NVMRAMMock<32*1024>, 128>              SlotNVMtoTestMax2;
 
 void dumpData(std::vector<uint8_t> &data , const std::string &str = "") {
     std::cout << str << std::dec << "[" << data.size() << "]" << std::hex << std::setfill('0') << std::right;
@@ -58,6 +60,7 @@ CPPUNIT_TEST_SUITE( RandomTest );
 
 CPPUNIT_TEST( doRndNoCrcTest );
 CPPUNIT_TEST( doRndWithCrcTest );
+CPPUNIT_TEST( doRndMaxTest );
 
 CPPUNIT_TEST_SUITE_END();
 
@@ -88,6 +91,14 @@ public:
     void doRndWithCrcTest() {
         SlotNVMcrcToTest toTest;
         runTest(toTest, 5000);
+    }
+
+    void doRndMaxTest() {
+        SlotNVMtoTestMax1 toTest1;
+        runTest(toTest1, 1000);
+
+        SlotNVMtoTestMax2 toTest2;
+        runTest(toTest2, 1000);
     }
 
     template <class T>

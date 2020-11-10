@@ -76,6 +76,8 @@ CPPUNIT_TEST( test_CRC_00 );
 
 CPPUNIT_TEST( test_maxSlots_00 );
 
+CPPUNIT_TEST( test_maxCluser_00 );
+
 CPPUNIT_TEST_SUITE_END();
 
 private:
@@ -624,6 +626,34 @@ public:
 
         // slot 9 not available
         ret = tinyNVM->writeSlot(9, data, sizeof(data));
+        CPPUNIT_ASSERT( !ret );
+    }
+
+    void test_maxCluser_00() {
+        SlotNVM<NVMRAMMock<16*256>, 16, 0, 0, &dummyCRC> maxClusterNVM;
+        bool ret = maxClusterNVM.begin();
+        CPPUNIT_ASSERT( ret );
+
+        size_t freeExp = 2560;
+        size_t free = maxClusterNVM.getFree();
+        CPPUNIT_ASSERT( free == freeExp );
+
+        uint8_t data[] = {  1,  2,  3,  4,  5,  6,  7,  8,
+                            9, 10, 11, 12, 13, 14, 15, 16,
+                           17, 18, 19, 20, 21, 22, 23, 24,
+                           25, 26, 27, 28, 29, 30, 31, 32 };
+
+        // write 64 * 4 clusters = 256 clusters => all full
+        for (uint8_t slot = 1; slot <= 64; ++slot) {
+            ret = maxClusterNVM.writeSlot(slot, data, sizeof(data));
+            CPPUNIT_ASSERT( ret );
+            freeExp -= 40;
+            free = maxClusterNVM.getFree();
+            CPPUNIT_ASSERT( free == freeExp );
+        }
+
+        // all full => can not store one byte
+        ret = maxClusterNVM.writeSlot(100, data, 1);
         CPPUNIT_ASSERT( !ret );
     }
 };
