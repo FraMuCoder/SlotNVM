@@ -20,28 +20,28 @@ class PowerLostException : public std::exception {
 
 };
 
-template <address_t SIZE, bool NEED_ERASE = false, uint8_t DEFAULT_VALUE = 0xFF, address_t PAGE_SIZE = 128>
+template <nvm_size_t SIZE, bool NEED_ERASE = false, uint8_t DEFAULT_VALUE = 0xFF, nvm_size_t PAGE_SIZE = 128>
 class NVMRAMMock {
 public:
-    static const address_t S_SIZE = SIZE;
+    static const nvm_size_t S_SIZE = SIZE;
 
     NVMRAMMock();
 
-    static address_t getSize() { return SIZE; }
+    static nvm_size_t getSize() { return SIZE; }
 
     static bool needErase() { return NEED_ERASE; }
 
-    bool erase(address_t start, address_t len);
+    bool erase(nvm_address_t start, nvm_size_t len);
 
-    bool read(address_t addr, uint8_t &data) const;
+    bool read(nvm_address_t addr, uint8_t &data) const;
 
-    bool read(address_t addr, uint8_t *data, address_t len) const;
+    bool read(nvm_address_t addr, uint8_t *data, nvm_size_t len) const;
 
-    bool write(address_t addr, uint8_t data);
+    bool write(nvm_address_t addr, uint8_t data);
 
-    bool write(address_t addr, const uint8_t *data, address_t len);
+    bool write(nvm_address_t addr, const uint8_t *data, nvm_size_t len);
 
-    void setWriteErrorAfterXbytes(address_t bytes) {
+    void setWriteErrorAfterXbytes(uint16_t bytes) {
         m_writeErrorAfterXbytes = bytes;
     }
 
@@ -52,19 +52,19 @@ public:
 private:
     std::vector<uint8_t>    m_memory;
     std::vector<size_t>     m_writeCount;
-    address_t               m_writeErrorAfterXbytes;
+    uint16_t                m_writeErrorAfterXbytes;
 };
 
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
 NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::NVMRAMMock()
     : m_memory(SIZE, DEFAULT_VALUE)
     , m_writeCount(SIZE)
     , m_writeErrorAfterXbytes(0)
 {}
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::erase(address_t start, address_t len) {
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::erase(nvm_address_t start, nvm_size_t len) {
     if (NEED_ERASE && (len > 0) && (start < SIZE)) {
         // round up to next page size
         --len;
@@ -72,8 +72,8 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::erase(address_t sta
         len *= PAGE_SIZE;
         len += PAGE_SIZE;
 
-        address_t end = start + len;
-        for (address_t i = start; i < end; ++i) {
+        nvm_size_t end = start + len;
+        for (nvm_size_t i = start; i < end; ++i) {
             m_memory[i] = DEFAULT_VALUE;
             ++(m_writeCount[i]);
         }
@@ -83,8 +83,8 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::erase(address_t sta
     }
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t &data) const {
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(nvm_address_t addr, uint8_t &data) const {
     if (addr < SIZE) {
         data = m_memory[addr];
         return true;
@@ -93,8 +93,8 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr
     }
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr, uint8_t *data, address_t len) const {
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(nvm_address_t addr, uint8_t *data, nvm_size_t len) const {
     if ((addr < SIZE) && (data != NULL)) {
         std::memcpy(data, &m_memory[addr], len);
         return true;
@@ -103,8 +103,8 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::read(address_t addr
     }
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t addr, uint8_t data) {
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(nvm_address_t addr, uint8_t data) {
     if (addr < SIZE) {
         if (m_writeErrorAfterXbytes > 0) {
             --m_writeErrorAfterXbytes;
@@ -129,10 +129,10 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t add
     } 
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
-bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t addr, const uint8_t *data, address_t len) {
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
+bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(nvm_address_t addr, const uint8_t *data, nvm_size_t len) {
     if ((addr < SIZE) && (data != NULL)) {
-        for (address_t i = 0; i < len; ++i) {
+        for (nvm_size_t i = 0; i < len; ++i) {
             bool ret = write(addr+i, data[i]);
             if (!ret) return false;
         }
@@ -142,13 +142,13 @@ bool NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::write(address_t add
     } 
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
 void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dump() const {
-    const address_t blockSize = 16;
-    for (address_t i = 0; i < (SIZE / blockSize); ++i) {
+    const nvm_size_t blockSize = 16;
+    for (nvm_size_t i = 0; i < (SIZE / blockSize); ++i) {
         std::cout << std::hex << std::setfill('0') << std::right;
         std::cout << std::setw(4) << i << ":";
-        for (address_t o = 0; o < blockSize; ++o) {
+        for (nvm_size_t o = 0; o < blockSize; ++o) {
             if (o == (blockSize/2)) {
                 std::cout << " -";
             }
@@ -158,13 +158,13 @@ void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dump() const {
     }
 }
 
-template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
+template <nvm_size_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, nvm_size_t PAGE_SIZE>
 void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dumpWriteCounts() const {
-    const address_t blockSize = 16;
-    for (address_t i = 0; i < (SIZE / blockSize); ++i) {
+    const nvm_size_t blockSize = 16;
+    for (nvm_size_t i = 0; i < (SIZE / blockSize); ++i) {
         std::cout << std::hex << std::setfill('0') << std::right;
         std::cout << std::setw(4) << i << ":";
-        for (address_t o = 0; o < blockSize; ++o) {
+        for (nvm_size_t o = 0; o < blockSize; ++o) {
             if (o == (blockSize/2)) {
                 std::cout << " -";
             }

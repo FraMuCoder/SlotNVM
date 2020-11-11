@@ -146,12 +146,12 @@ public:
     }
 
     template <class T>
-    void testWrite(T &toTest, uint8_t maxSlot = 255, size_t maxLen = 256) {
+    void testWrite(T &toTest, uint8_t maxSlot = 255, nvm_size_t maxLen = 256) {
         uint8_t slot = m_rndSlotDist(m_rndGen);
         if (slot > maxSlot) {
             slot %= (maxSlot + 1);
         }
-        size_t len = m_rndByteDist(m_rndGen) + 1;
+        nvm_size_t len = m_rndByteDist(m_rndGen) + 1;
         if (len > maxLen) {
             len %= (maxLen + 1);
         }
@@ -240,7 +240,7 @@ public:
     bool nvmTest(T &toTest, uint8_t activeSlot, std::vector<uint8_t> *written = NULL) {
         for (int slot = 1; slot <= 250; ++slot) {
             std::vector<uint8_t> data(256);
-            size_t len = data.size();
+            nvm_size_t len = data.size();
 
             bool res = toTest.readSlot(slot, &data[0], len);
 

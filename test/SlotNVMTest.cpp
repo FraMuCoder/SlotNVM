@@ -32,7 +32,7 @@ static uint8_t dummyCRC(uint8_t crc, uint8_t data) {
     return crc ^ data;
 }
 
-static uint8_t dummyCRCbuf(const uint8_t *data, size_t len) {
+static uint8_t dummyCRCbuf(const uint8_t *data, nvm_size_t len) {
     uint8_t crc = 0;
     for (; len > 0; --len,++data) {
         crc = dummyCRC(crc, *data);
@@ -277,7 +277,7 @@ public:
         CPPUNIT_ASSERT( ret );
 
         uint8_t data[10] = {0};
-        size_t size = sizeof(data);
+        nvm_size_t size = sizeof(data);
         ret = tinyNVM->readSlot(1, data, size);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( size == 2 );
@@ -294,7 +294,7 @@ public:
         CPPUNIT_ASSERT( ret );
 
         uint8_t data[10] = {0};
-        size_t size = sizeof(data);
+        nvm_size_t size = sizeof(data);
         ret = tinyNVM->readSlot(1, data, size);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( size == 5 );
@@ -309,7 +309,7 @@ public:
         // read errors
 
         uint8_t data[10] = {0};
-        size_t size = sizeof(data);
+        nvm_size_t size = sizeof(data);
         bool ret = tinyNVM->readSlot(1, data, size);// called before begin()
         CPPUNIT_ASSERT( !ret );
 
@@ -341,7 +341,7 @@ public:
         CPPUNIT_ASSERT( ret );
 
         uint8_t dataR[4] = {0};
-        size_t size = sizeof(dataR);
+        nvm_size_t size = sizeof(dataR);
         ret = tinyNVM->readSlot(1, dataR, size);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( size == 2 );
@@ -378,7 +378,7 @@ public:
         CPPUNIT_ASSERT( (tinyNVM->m_usedCluster[0] & 0x05) == 0 );
 
         uint8_t dataR[4] = {0};
-        size_t size = sizeof(dataR);
+        nvm_size_t size = sizeof(dataR);
         ret = tinyNVM->readSlot(1, dataR, size);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( size == 2 );
@@ -396,7 +396,7 @@ public:
         CPPUNIT_ASSERT( ret );
 
         uint8_t dataR[5] = {0};
-        size_t size = sizeof(dataR);
+        nvm_size_t size = sizeof(dataR);
         ret = tinyNVM->readSlot(1, dataR, size);
         CPPUNIT_ASSERT( ret );
         CPPUNIT_ASSERT( size == 5 );
@@ -460,10 +460,10 @@ public:
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
 
-        size_t total = tinyNVM->getSize();
+        nvm_size_t total = tinyNVM->getSize();
         CPPUNIT_ASSERT( total == (64/8)*(8-6) );
 
-        size_t free = tinyNVM->getFree();
+        nvm_size_t free = tinyNVM->getFree();
         CPPUNIT_ASSERT( free == total );
 
         uint8_t data[] = { 0xC1, 0xC2 };
@@ -524,7 +524,7 @@ public:
         // no provision
         bool ret = tinyNVM->begin();
         CPPUNIT_ASSERT( ret );
-        size_t free = tinyNVM->getFree();
+        nvm_size_t free = tinyNVM->getFree();
         CPPUNIT_ASSERT( free == 16 );
 
         uint8_t data[] = { 0xC1, 0xC2, 0xC3, 0xC4 };
@@ -594,7 +594,7 @@ public:
         bool ret = noCRCslotNVM.begin();
         CPPUNIT_ASSERT( ret );
 
-        size_t free = noCRCslotNVM.getFree();
+        nvm_size_t free = noCRCslotNVM.getFree();
         CPPUNIT_ASSERT( free == 24 );
 
         // invalid CRC
@@ -634,8 +634,8 @@ public:
         bool ret = maxClusterNVM.begin();
         CPPUNIT_ASSERT( ret );
 
-        size_t freeExp = 2560;
-        size_t free = maxClusterNVM.getFree();
+        nvm_size_t freeExp = 2560;
+        nvm_size_t free = maxClusterNVM.getFree();
         CPPUNIT_ASSERT( free == freeExp );
 
         uint8_t data[] = {  1,  2,  3,  4,  5,  6,  7,  8,

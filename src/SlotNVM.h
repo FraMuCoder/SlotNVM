@@ -71,7 +71,7 @@
  * @tparam RND_FUNC         Random function for wear leveling. Default is rand() from stdlib.h.
  *                          Please do not forget to call srand().
  */
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION = 0, uint8_t LAST_SLOT = 0,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0,
           uint8_t (*CRC_FUNC)(uint8_t crc, uint8_t data) = (uint8_t (*)(uint8_t, uint8_t))NULL,
           typename RND_TYPE = int, RND_TYPE (*RND_FUNC)() = &rand>
 class SlotNVM : public BASE {
@@ -128,7 +128,7 @@ public:
      * @param len   Lenght of data to write
      * @return      true on success else false
      */
-    bool writeSlot(uint8_t slot, const uint8_t *data, size_t len);
+    bool writeSlot(uint8_t slot, const uint8_t *data, nvm_size_t len);
 
     /**
      * Write data.
@@ -151,7 +151,7 @@ public:
      *                          out: Length of read data
      * @return      true on success else false
      */
-    bool readSlot(uint8_t slot, uint8_t *data, size_t &len) const;
+    bool readSlot(uint8_t slot, uint8_t *data, nvm_size_t &len) const;
     
     /**
      * Read data
@@ -162,7 +162,7 @@ public:
      */
     template <class T>
     bool readSlot(uint8_t slot, T &data) const {
-      size_t len = 0;
+      nvm_size_t len = 0;
       readSlot(slot, NULL, len);
       if (len == sizeof(T)) {
         return readSlot(slot, (uint8_t *)&data, len);
@@ -183,7 +183,7 @@ public:
      * Some of this might be reserved as provision for safe overwriting.
      * @return  Total size in bytes
      */
-    size_t getSize() const {
+    nvm_size_t getSize() const {
         return S_CLUSTER_CNT * S_USER_DATA_PER_CLUSTER;
     }
 
@@ -191,7 +191,7 @@ public:
      * Get amount of total usable user data.
      * @return  Usable data size in bytes
      */
-    size_t getUsableSize() const {
+    nvm_size_t getUsableSize() const {
         return S_CLUSTER_CNT * S_USER_DATA_PER_CLUSTER - S_PROVISION;
     }
 
@@ -199,7 +199,7 @@ public:
      * Get amount of still writable user data.
      * @return  Free bytes
      */
-    size_t getFree() const;
+    nvm_size_t getFree() const;
 
 private:
     bool    m_initDone;
@@ -282,26 +282,26 @@ private:
 };
 
 #if defined(__AVR_ARCH__) && defined(E2END)
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM16noCRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM32noCRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM64noCRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM16CRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM32CRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
-  template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
+  template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM64CRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 #endif
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 const uint8_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::S_AGE_BITS_TO_OLDEST[] _SLOTNVM_FLASHMEM_ = {
         0xF0,   // _ _ _ _  => 0    Error (no age)
@@ -322,7 +322,7 @@ const uint8_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TY
         0xF3    // 0 1 2 3  => 3    Error three old ones
     };
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::SlotNVM()
     : m_initDone(false)
@@ -332,40 +332,40 @@ SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>:
     // ToDo
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::begin() {
     if (m_initDone) return false;
 
     // first check used cluster and available slots
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
-        address_t c_addr = cluster * CLUSTER_SIZE;
+        nvm_address_t cAddr = cluster * CLUSTER_SIZE;
         uint8_t slot;
         uint8_t d;
         uint8_t crc = 0;
 
-        bool res = this->read(c_addr, slot);                            // read slot no.
+        bool res = this->read(cAddr, slot);                            // read slot no.
         if (!res) return false;
         if ((slot < S_FIRST_SLOT) || (slot > S_LAST_SLOT)) continue;    // skip unused
         if (CRC_FUNC != NULL) {
             crc = CRC_FUNC(crc, slot);
         }
 
-        res = this->read(c_addr + CLUSTER_SIZE - 1, d);                 // read end byte
+        res = this->read(cAddr + CLUSTER_SIZE - 1, d);                 // read end byte
         if (!res) return false;
         if (S_END_BYTE != d) continue;                                  // skip incomplete written
 
         if (CRC_FUNC != NULL) {
-            res = this->read(c_addr + 1, d);                            // read flags
+            res = this->read(cAddr + 1, d);                            // read flags
             if (!res) return false;
             crc = CRC_FUNC(crc, d);
             bool isFirst = (d & S_START_CLUSTER_FLAG) != 0;
 
-            res = this->read(c_addr + 2, d);                            // read next cluster
+            res = this->read(cAddr + 2, d);                            // read next cluster
             if (!res) return false;
             crc = CRC_FUNC(crc, d);
 
-            res = this->read(c_addr + 3, d);                            // read length
+            res = this->read(cAddr + 3, d);                            // read length
             if (!res) return false;
             crc = CRC_FUNC(crc, d);
 
@@ -382,11 +382,11 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
             }
 
             for (uint8_t i = 4; i < (4 + len); ++i) {                   // read user data
-                res = this->read(c_addr + i, d);
+                res = this->read(cAddr + i, d);
                 if (!res) return false;
                 crc = CRC_FUNC(crc, d);
             }
-            res = this->read(c_addr + CLUSTER_SIZE - 2, d);             // read CRC
+            res = this->read(cAddr + CLUSTER_SIZE - 2, d);             // read CRC
             if (!res) return false;
             if (d != crc) continue;                                     // skip invalid CRC
         }
@@ -408,10 +408,10 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
         // find all cluster used by current slot and all start cluster
         for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
             if (!isClusterBitSet(cluster)) continue;                    // skip unused
-            address_t c_addr = cluster * CLUSTER_SIZE;
+            nvm_address_t cAddr = cluster * CLUSTER_SIZE;
             uint8_t d;
 
-            bool res = this->read(c_addr, d);                           // read slot no.
+            bool res = this->read(cAddr, d);                           // read slot no.
             if (!res) return false;
             if (d != slot) continue;                                    // skip other slots
 
@@ -420,7 +420,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
             // remember all cluster so we can delete old and defective
             setClusterBit(clusterUsedBySlot, cluster);
 
-            res = this->read(c_addr + 1, d);                            // read flags
+            res = this->read(cAddr + 1, d);                            // read flags
             if (!res) return false;
             uint8_t age = (d & S_AGE_MASK) >> S_AGE_SHIFT;              // age 0..3
             if ((d & S_START_CLUSTER_FLAG) != 0) {                      // start cluster found
@@ -444,11 +444,11 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
 
             uint8_t startCluster = firstCluster[oldes];
             setClusterBit(validCluster, startCluster);
-            address_t c_addr = startCluster * CLUSTER_SIZE;
+            nvm_address_t cAddr = startCluster * CLUSTER_SIZE;
             uint8_t flags, startLen, curLen;
-            uint8_t res = this->read(c_addr + 1, flags);                // read flags
+            uint8_t res = this->read(cAddr + 1, flags);                // read flags
             if (!res) return false;
-            res = this->read(c_addr + 3, startLen);                     // read length
+            res = this->read(cAddr + 3, startLen);                     // read length
             if (!res) return false;
             uint16_t doNotExceetLen = startLen + 1 + S_USER_DATA_PER_CLUSTER; // ToDo dynamic min length
             uint16_t curMaxDataLen = S_USER_DATA_PER_CLUSTER; // should not exceed realLen + S_USER_DATA_PER_CLUSTER
@@ -456,12 +456,12 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
             bool err = false;
             uint8_t curCluster = startCluster;
             while (!err && ((flags & S_LAST_CLUSTER_FLAG) == 0)) {
-                res = this->read(c_addr + 2, curCluster);               // read next cluster number
+                res = this->read(cAddr + 2, curCluster);               // read next cluster number
                 setClusterBit(validCluster, curCluster);
                 if (!res) return false;
                 if (isClusterBitSet(clusterUsedBySlot, curCluster)) {   // next cluster belong to this slot
-                    c_addr = curCluster * CLUSTER_SIZE;                 // next address
-                    res = this->read(c_addr + 1, flags);                // read flags
+                    cAddr = curCluster * CLUSTER_SIZE;                 // next address
+                    res = this->read(cAddr + 1, flags);                // read flags
                     if (!res) return false;
 
                     if (((flags & S_AGE_MASK) >> S_AGE_SHIFT) != oldes) {
@@ -509,21 +509,21 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return m_initDone;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
-bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::writeSlot(uint8_t slot, const uint8_t *data, size_t len) {
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::writeSlot(uint8_t slot, const uint8_t *data, nvm_size_t len) {
     if (!m_initDone) return false;
     if (data == NULL) return false;
     if (len < 1) return false;
     if (len > 256) return false;
     if ((slot < S_FIRST_SLOT) || (slot > S_LAST_SLOT)) return false;
     uint8_t oldStartCluster;
-    address_t cAddr;
+    nvm_address_t cAddr;
     uint8_t d[4];
     uint8_t newAge = 0;
     bool res;
     bool overwrite = findStartCluser(slot, oldStartCluster);
-    size_t free = getFree();
+    nvm_size_t free = getFree();
 
     if (overwrite) {
         cAddr = oldStartCluster * CLUSTER_SIZE;
@@ -534,7 +534,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
 
         res = this->read(cAddr + 3, d[0]);                      // read old length
         if (!res) return false;
-        size_t extraFree = ((d[0] + S_USER_DATA_PER_CLUSTER - 1) / S_USER_DATA_PER_CLUSTER) * S_USER_DATA_PER_CLUSTER;
+        nvm_size_t extraFree = ((d[0] + S_USER_DATA_PER_CLUSTER - 1) / S_USER_DATA_PER_CLUSTER) * S_USER_DATA_PER_CLUSTER;
         if (extraFree > S_PROVISION) {
             free += S_PROVISION;
         } else {
@@ -572,7 +572,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
 
         // calc length of user data in this cluser
         uint16_t offset = i * S_USER_DATA_PER_CLUSTER;
-        size_t toCopy = len - offset;
+        nvm_size_t toCopy = len - offset;
         if (toCopy > S_USER_DATA_PER_CLUSTER) {
             toCopy = S_USER_DATA_PER_CLUSTER;
         }
@@ -619,21 +619,21 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
-bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::readSlot(uint8_t slot, uint8_t *data, size_t &len) const {
+bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::readSlot(uint8_t slot, uint8_t *data, nvm_size_t &len) const {
     if (!m_initDone) return false;
 
     uint8_t curCluster;
     bool res = findStartCluser(slot, curCluster);
     if (!res) return false;
 
-    address_t cAddr = curCluster * CLUSTER_SIZE;
+    nvm_address_t cAddr = curCluster * CLUSTER_SIZE;
     uint8_t d;
 
     res = this->read(cAddr + 3, d);                 // read length
     if (!res) return false;
-    size_t lenToCopy = d + 1;
+    nvm_size_t lenToCopy = d + 1;
     if (lenToCopy > len) {
         len = lenToCopy;
         return false;
@@ -645,7 +645,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     do {
         res = this->read(cAddr + 1, flags);         // read flags
         if (!res) return false;
-        size_t curCopy = (lenToCopy > S_USER_DATA_PER_CLUSTER) ? S_USER_DATA_PER_CLUSTER : lenToCopy;
+        nvm_size_t curCopy = (lenToCopy > S_USER_DATA_PER_CLUSTER) ? S_USER_DATA_PER_CLUSTER : lenToCopy;
         res = this->read(cAddr + 4, data, curCopy); // read data into buffer
         if (!res) return false;
         data += curCopy;
@@ -659,7 +659,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::eraseSlot(uint8_t slot) {
     if (!m_initDone) return false;
@@ -673,11 +673,11 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return res;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::clearCluster(uint8_t cluster) {
-    address_t c_addr = cluster * CLUSTER_SIZE;
-    if (this->write(c_addr, 0x00)) {
+    nvm_address_t cAddr = cluster * CLUSTER_SIZE;
+    if (this->write(cAddr, 0x00)) {
         clearClusterBit(cluster);
         return true;
     } else {
@@ -685,10 +685,10 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     }
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::clearClusters(uint8_t firstCluster) {
-    address_t cAddr = firstCluster * CLUSTER_SIZE;
+    nvm_address_t cAddr = firstCluster * CLUSTER_SIZE;
     bool res = this->write(cAddr, 0x00);
     if (!res) return false;
     clearClusterBit(firstCluster);
@@ -713,10 +713,10 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return true;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
-size_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::getFree() const {
-    size_t free = getSize();
+nvm_size_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::getFree() const {
+    nvm_size_t free = getSize();
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
         if (isClusterBitSet(cluster)) {
             free -= S_USER_DATA_PER_CLUSTER;
@@ -729,21 +729,21 @@ size_t SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND
     }
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::findStartCluser(uint8_t slot, uint8_t &startCluster) const {
     for (uint16_t cluster = 0; cluster < S_CLUSTER_CNT; ++cluster) {
         if (!isClusterBitSet(cluster)) continue;                    // skip unused
-        address_t c_addr = cluster * CLUSTER_SIZE;
+        nvm_address_t cAddr = cluster * CLUSTER_SIZE;
         uint8_t d;
 
-        bool res = this->read(c_addr, d);                           // read slot no.
+        bool res = this->read(cAddr, d);                           // read slot no.
         if (!res) return false;
         if (d != slot) continue;                                    // skip other slots
 
         // we don't need to check end byte again, they are already marked as unused in begin()
 
-        res = this->read(c_addr + 1, d);                            // read flags
+        res = this->read(cAddr + 1, d);                            // read flags
         if (!res) return false;
         if ((d & S_START_CLUSTER_FLAG) != 0) {                      // start cluster found
             startCluster = cluster;
@@ -754,7 +754,7 @@ bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_F
     return false;
 }
 
-template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,
+template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION, uint8_t LAST_SLOT,
           uint8_t (*CRC_FUNC)(uint8_t, uint8_t), typename RND_TYPE, RND_TYPE (*RND_FUNC)()>
 bool SlotNVM<BASE, CLUSTER_SIZE, PROVISION, LAST_SLOT, CRC_FUNC, RND_TYPE, RND_FUNC>::nextFreeCluster(uint8_t &nextCluster) const {
     if (S_CLUSTER_CNT < 256) {
