@@ -283,22 +283,22 @@ private:
 
 #if defined(__AVR_ARCH__) && defined(E2END)
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM16noCRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT> {};
+  class SlotNVM16noCRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM32noCRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT> {};
+  class SlotNVM32noCRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM64noCRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT> {};
+  class SlotNVM64noCRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM16CRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
+  class SlotNVM16CRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM32CRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
+  class SlotNVM32CRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
   template <address_t PROVISION = 0, uint8_t LAST_SLOT = 0>
-  class SlotNVM64CRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, &_crc8_ccitt_update> {};
+  class SlotNVM64CRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 #endif
 
 template <class BASE, address_t CLUSTER_SIZE, address_t PROVISION, uint8_t LAST_SLOT,

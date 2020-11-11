@@ -41,7 +41,7 @@ Currently not implemented:
 
 ## Usage
 
-Especially for Arduino with integrated EEPROM you can use one the following classes.
+For AVR microcontroller based Arduino boards with integrated EEPROM you can use one of the following classes.
 
 * `SlotNVM16noCRC<>`
 * `SlotNVM32noCRC<>`
@@ -52,23 +52,23 @@ Especially for Arduino with integrated EEPROM you can use one the following clas
 
 Excample code:
 
-    // include the header
+    // Include the header
     #include <SlotNVM.h>
-    
-    // create an instance
+
+    // Create an instance
     SlotNVM16CRC<> slotNVM;
-    
+
     int starts = 1;
-    
+
     void setup() {
       Serial.begin(115200);
       
-      // call begin() once
+      // Call begin() once
       slotNVM.begin();
-      // init random generator for better wear leveling
-      srand(analogRead(0));
+      // Init random generator for better wear leveling
+      randomSeed(analogRead(0));
 
-      // now you can use readSlot() and writeSlot()
+      // Now you can use readSlot() and writeSlot()
       if (slotNVM.readSlot(1, starts)) {
         Serial.print(F("This is start no. "));
         Serial.println(starts);
@@ -81,7 +81,73 @@ Excample code:
         slotNVM.writeSlot(1, starts);
       }
     }
-    
+
+    void loop() {
+    }
+
+Transactional write is implemented by first write the new data and than delete the old one.
+Therefore you need some free space if you want to overwrite a slot. If you want to ensure that you can
+always rewrite data you can create a SlotNVM with reserved space. You are not able to use this reserved
+space to write in an empty slot.
+This feature is useful for configuration data. Otherwise you are not able to change your configuration
+if SlotNVM is full of other data.
+
+    #include <SlotNVM.h>
+
+    // struct for my configuration
+    struct configuration {
+      char name[10];
+      int  age;
+    };
+
+    const char DEF_NAME[] PROGMEM = "Arduino";
+    const int  DEF_AGE = 42;
+
+    configuration myConfig;
+
+    // Create an instance
+    // This SlotNVM reserves some space to always
+    // allow to rewrite slot data with the size
+    // up to the same size like configuration.
+    SlotNVM32CRC<sizeof(configuration)> slotNVM;
+
+    const uint8_t CFG_SLOT = slotNVM.S_LAST_SLOT;
+
+    void setup() {
+      Serial.begin(115200);
+      
+      // Call begin() once
+      slotNVM.begin();
+      // Init random generator for better wear leveling
+      randomSeed(analogRead(0));
+
+      if (!slotNVM.readSlot(CFG_SLOT, myConfig)) {
+        // No configuration stored, use default
+        Serial.println(F("Default configuration used"));
+        strcpy_P(myConfig.name, DEF_NAME);
+        myConfig.age = DEF_AGE;
+
+        // Note: Reservation works only for rewriting
+        // a slot not for the first write.
+        // If you want to ensure to change this
+        // configuration you should write it
+        // before there is no space left.
+        slotNVM.writeSlot(CFG_SLOT, myConfig);
+      } else {
+        Serial.println(F("Configuration was loaded"));
+      }
+
+      // Use other slots for your business
+      for (uint8_t slot = 1; slot < CFG_SLOT; ++slot) {
+        if (slotNVM.isSlotAvailable(slot)) {
+          // Do something with this slot
+          Serial.print(F("Slot "));
+          Serial.print(slot);
+          Serial.println(F(" has some data."));
+        }
+      }
+    }
+
     void loop() {
     }
 
