@@ -23,6 +23,7 @@ Currently implemented:
 * Extendable to other EEPROM using own access class
 * Transactional write
 * Possibility to reserve some free clusters to ensure that data can always safely be rewritten
+* Possibility to enable wear leveling via random function
 * Low RAM usage
 * Up to 32KiByte EEPROM (128 clusters with 256 bytes or 256 clusters with 128 byte each)
 * Up to 250 slots
@@ -34,7 +35,6 @@ Currently implemented:
 Currently not implemented:
 
 * Flash memory
-* Wear leveling
 * CRC xor in/out (and will never implement?)
 * Non transactional write as optional fallback
 * Use more than 8 bits for slot data length
@@ -65,6 +65,8 @@ Excample code:
       
       // call begin() once
       slotNVM.begin();
+      // init random generator for better wear leveling
+      srand(analogRead(0));
 
       // now you can use readSlot() and writeSlot()
       if (slotNVM.readSlot(1, starts)) {

@@ -61,6 +61,7 @@ CPPUNIT_TEST_SUITE( RandomTest );
 CPPUNIT_TEST( doRndNoCrcTest );
 CPPUNIT_TEST( doRndWithCrcTest );
 CPPUNIT_TEST( doRndMaxTest );
+CPPUNIT_TEST( doWearLevelingTest );
 
 CPPUNIT_TEST_SUITE_END();
 
@@ -101,6 +102,22 @@ public:
         runTest(toTest2, 1000);
     }
 
+    void doWearLevelingTest() {
+        SlotNVMcrcToTest toTest;
+        reset();
+        toTest.begin();
+
+        for (int i = 0; i < 5000; ++i) {
+            testWrite(toTest, 5, 20);
+        }
+
+        //toTest.dumpWriteCounts();
+
+        for (uint8_t cluster = 0; cluster < toTest.S_CLUSTER_CNT; ++cluster) {
+            CPPUNIT_ASSERT( toTest.m_writeCount[cluster * 32] > 10 );
+        }
+    }
+
     template <class T>
     void runTest(T &toTest, unsigned cnt) {
         reset();
@@ -129,9 +146,15 @@ public:
     }
 
     template <class T>
-    void testWrite(T &toTest) {
+    void testWrite(T &toTest, uint8_t maxSlot = 255, size_t maxLen = 256) {
         uint8_t slot = m_rndSlotDist(m_rndGen);
+        if (slot > maxSlot) {
+            slot %= (maxSlot + 1);
+        }
         size_t len = m_rndByteDist(m_rndGen) + 1;
+        if (len > maxLen) {
+            len %= (maxLen + 1);
+        }
         std::vector<uint8_t> data(len);
         std::vector<uint8_t> before = toTest.m_memory;
 

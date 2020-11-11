@@ -47,6 +47,8 @@ public:
 
     void dump() const;
 
+    void dumpWriteCounts() const;
+
 private:
     std::vector<uint8_t>    m_memory;
     std::vector<size_t>     m_writeCount;
@@ -151,6 +153,22 @@ void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dump() const {
                 std::cout << " -";
             }
             std::cout << " " << std::setw(2) << (int)m_memory[i*blockSize+o];
+        }
+        std::cout << std::endl;
+    }
+}
+
+template <address_t SIZE, bool NEED_ERASE, uint8_t DEFAULT_VALUE, address_t PAGE_SIZE>
+void NVMRAMMock<SIZE, NEED_ERASE, DEFAULT_VALUE, PAGE_SIZE>::dumpWriteCounts() const {
+    const address_t blockSize = 16;
+    for (address_t i = 0; i < (SIZE / blockSize); ++i) {
+        std::cout << std::hex << std::setfill('0') << std::right;
+        std::cout << std::setw(4) << i << ":";
+        for (address_t o = 0; o < blockSize; ++o) {
+            if (o == (blockSize/2)) {
+                std::cout << " -";
+            }
+            std::cout << " " << std::setw(4) << (int)m_writeCount[i*blockSize+o];
         }
         std::cout << std::endl;
     }
