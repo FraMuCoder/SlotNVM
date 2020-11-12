@@ -29,13 +29,13 @@ Currently implemented:
 * Up to 250 slots
 * 1 to 256 bytes per slot (0 byte not allowed)
 * Possibility to reduce maximum slots to reduce RAM usage
-* Use you own 8 bit CRC function (no xor in/out)
+* Use you own 8 bit CRC function (no xor in/out or reflect out)
 * Possibility to disable CRC for more available user data
 
 Currently not implemented:
 
 * Flash memory
-* CRC xor in/out (and will never implement?)
+* CRC xor in/out or reflect out (and will never implement?)
 * Non transactional write as optional fallback
 * Use more than 8 bits for slot data length
 
@@ -151,6 +151,7 @@ if SlotNVM is full of other data.
     void loop() {
     }
 
+The following tables should help to choose the right class. As you can see smaller cluster allows more slots but reduces usable memory size.
 
 | SlotNVM class    | CRC | Bytes / cluster | User data / cluster | Usable data / % |
 | ---------------- | --- | ---------------:| -------------------:| ---------------:|
@@ -193,6 +194,33 @@ Arduino Mega with 4096 bytes EEPROM
 | SlotNVM16CRC<>   |      256 |   250 |                2560 |               65 |
 | SlotNVM32CRC<>   |      128 |   128 |                3328 |               33 |
 | SlotNVM64CRC<>   |       64 |    64 |                3712 |               17 |
+
+If non of the classes abouve fits you needs or if you use a non AVR microcontroller or you want to use external EEPROM
+you need to use the class SlotNVM. Also you need to implement an access class. As a template you can use NVMBase or ArduinoEEPROM.
+
+    // Include the header
+    #include <SlotNVM.h>
+    #include <MyAccessClass.h>
+
+    // Create an instance, with
+    //   no provision
+    //   default slot count (based on cluster count)
+    //   no CRC
+    //   default random function (rand())
+    SlotNVM<MyAccessClass, 32> slotNVM;
+
+    int starts = 1;
+
+    void setup() {
+      Serial.begin(115200);
+      
+      // Call begin() once
+      slotNVM.begin();
+      // Init random generator for better wear leveling
+      srand(analogRead(0));
+
+      // ...
+    }
 
 ## Install
 

@@ -12,10 +12,11 @@
 #include <EEPROM.h>
 
 
+/// NVM access class for AVR microcontroller with integrated EEPROM.
 template <nvm_size_t SIZE = E2END + 1>
 class ArduinoEEPROM {
 public:
-    static const nvm_address_t S_SIZE = SIZE;
+    static const nvm_size_t S_SIZE = SIZE;
 
     ArduinoEEPROM();
 

@@ -64,26 +64,33 @@
  * @tparam LAST_SLOT        Number of last usable slot.
  *                          Maximum value is 250.
  *                          0 mean number is equal to count of available cluster.
+ *                          The result is stored in S_LAST_SLOT 
  * @tparam CRC_FUNC         Function to calculate a 8 bit CRC.
  *                          Prototype must be: uint8_t CRC8_function(uint8_t crc, uint8_t data).
  *                          NULL means not CRC is stored in NVM and therefore one extra data byte per cluster is available.
- * @tparam RND_TYPE         Return type for the next random function.
+ * @tparam RND_TYPE         Return type of RND_FUNC.
  * @tparam RND_FUNC         Random function for wear leveling. Default is rand() from stdlib.h.
  *                          Please do not forget to call srand().
  */
 template <class BASE, nvm_size_t CLUSTER_SIZE, nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0,
           uint8_t (*CRC_FUNC)(uint8_t crc, uint8_t data) = (uint8_t (*)(uint8_t, uint8_t))NULL,
           typename RND_TYPE = int, RND_TYPE (*RND_FUNC)() = &rand>
-class SlotNVM : public BASE {
+class SlotNVM : private BASE {
     static_assert(CLUSTER_SIZE <= 256, "CLUSTER_SIZE must be less or equal to 256.");
     static_assert(LAST_SLOT <= 250, "LAST_SLOT must be less or equal to 250.");
 
 public:
+    /// Count of clusters.
     static const uint16_t S_CLUSTER_CNT = BASE::S_SIZE / CLUSTER_SIZE;
+    /// Max size of user data in one cluster.
     static const uint8_t S_USER_DATA_PER_CLUSTER = CLUSTER_SIZE - 6 + ((CRC_FUNC == NULL) ? 1 : 0);
+    /// Count of reserved user bytes for overwriting slots.
     static const uint16_t S_PROVISION = ((PROVISION + S_USER_DATA_PER_CLUSTER - 1) / S_USER_DATA_PER_CLUSTER) * S_USER_DATA_PER_CLUSTER;
+    /// First allowed slot number.
     static const uint8_t S_FIRST_SLOT = 1;
+    /// Last allowed slot number.
     static const uint8_t S_LAST_SLOT = LAST_SLOT == 0 ? (S_CLUSTER_CNT > 250 ? 250 : S_CLUSTER_CNT) : (LAST_SLOT > 250 ? 250 : LAST_SLOT);
+private:
     static const uint8_t S_END_BYTE = 0xA0 + ((CRC_FUNC == NULL) ? 0 : 1);
     static const uint8_t S_AGE_MASK = 0xC0;
     static const uint8_t S_AGE_SHIFT = 6;
@@ -94,12 +101,13 @@ public:
     static_assert(S_CLUSTER_CNT <= 256, "Max. 256 cluster supported, please increase CLUSTER_SIZE.");
     static_assert((2*PROVISION) <= (S_USER_DATA_PER_CLUSTER*S_CLUSTER_CNT), "PROVISION must be less or equal to the half of available user data.");    
 
+public:
     SlotNVM();
 
     /**
      * Initialize SlotNVM.
      * Call this once before every other call to SlotNVM. This will check current data of NVM and fix wrong data if found some.
-     * @return  true if NVM data is readable and data structure is OK or fixed.
+     * @return  true if NVM data is readable and data structure is OK or fixed.             \n
      *          false if NVM data is not readable or data structure is corrupt and can not be fixed or begin() is called twice.
      */
     bool begin();
@@ -147,8 +155,10 @@ public:
      * So you can set data to NULL and len to 0 to read data length of a slot.
      * @param           slot    Slot number
      * @param           data    Buffer to read in
-     * @param[in,out]   len     in:  Size of data
-     *                          out: Length of read data
+     * @param[in,out]   len     in:  Size of data buffer                            \n
+     *                          out: On success count of bytes copied to data.
+     *                               If data buffer was to small the size of slot
+     *                               else value is not changed.
      * @return      true on success else false
      */
     bool readSlot(uint8_t slot, uint8_t *data, nvm_size_t &len) const;
@@ -282,21 +292,93 @@ private:
 };
 
 #if defined(__AVR_ARCH__) && defined(E2END)
+  /**
+   * SlotNVM with 16 bytes per cluster and no CRC.
+   * 11 bytes per cluster or 68,8% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM16noCRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
+  /**
+   * SlotNVM with 32 bytes per cluster and no CRC.
+   * 27 bytes per cluster or 84,4% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM32noCRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
+  /**
+   * SlotNVM with 64 bytes per cluster and no CRC.
+   * 59 bytes per cluster or 92,2% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM64noCRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, (uint8_t (*)(uint8_t, uint8_t))NULL, long, &random> {};
 
+  /**
+   * SlotNVM with 16 bytes per cluster protected with CRC.
+   * 10 bytes per cluster or 62,5% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM16CRC : public SlotNVM<ArduinoEEPROM<>, 16, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
+  /**
+   * SlotNVM with 32 bytes per cluster protected with CRC.
+   * 26 bytes per cluster or 81,3% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM32CRC : public SlotNVM<ArduinoEEPROM<>, 32, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 
+  /**
+   * SlotNVM with 64 bytes per cluster protected with CRC.
+   * 58 bytes per cluster or 90,6% can be used for user data.
+   * Random function for wear leveling is random() so do not forget to call srandom() or randomSeed().
+   * 
+   * @tparam PROVISION        Bytes that must always be free to ensure that data can safely be rewritten.
+   *                          If your slot data do not exceed this limit is can always be rewritten without deleting other data before.
+   *                          This value is rounded to next multiple of user data of a cluster.
+   * @tparam LAST_SLOT        Number of last usable slot.
+   *                          Maximum value is 250.
+   *                          0 mean number is equal to count of available cluster.
+   */
   template <nvm_size_t PROVISION = 0, uint8_t LAST_SLOT = 0>
   class SlotNVM64CRC : public SlotNVM<ArduinoEEPROM<>, 64, PROVISION, LAST_SLOT, &_crc8_ccitt_update, long, &random> {};
 #endif
