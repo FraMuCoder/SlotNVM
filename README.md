@@ -209,8 +209,6 @@ you need to use the class SlotNVM. Also you need to implement an access class. A
     //   default random function (rand())
     SlotNVM<MyAccessClass, 32> slotNVM;
 
-    int starts = 1;
-
     void setup() {
       Serial.begin(115200);
       
