@@ -226,6 +226,11 @@ Just download the code as zip file. In GitHub click on the `[Code]`-button and s
 
 In Arduino IDE select `Sketch` -> `Include library` -> `Add ZIP Library ...` to add the downloaded ZIP file.
 
+## Links
+
+* [API documentation](https://framucoder.github.io/SlotNVM/)
+* [Repository](https://github.com/FraMuCoder/SlotNVM)
+
 ## License
 
-SlotNVM is distributed under the [MIT License](LICENSE).
+SlotNVM is distributed under the [MIT License](./LICENSE).
