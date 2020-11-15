@@ -15,6 +15,8 @@ This repository implement a block based EEPROM structure. Later also Flash acces
 The NVM is split into blocks of equal size, called clusters. You do not access this clusters directly but store your data in virtual slots.
 Such a slot is indicate by a number and can be placed in any of the clusters or also in more than one.
 
+You can imagine SlotNVM as a small version of a file system. Instead files there are slots and instead filenames there are slot numbers.
+
 ## Features
 
 Currently implemented:
@@ -27,7 +29,8 @@ Currently implemented:
 * Low RAM usage
 * Up to 32KiByte EEPROM (128 clusters with 256 bytes or 256 clusters with 128 byte each)
 * Up to 250 slots
-* 1 to 256 bytes per slot (0 byte not allowed)
+* 1 to 256 user data per slot (0 byte not allowed)
+* Up to 256 clusters
 * Possibility to reduce maximum slots to reduce RAM usage
 * Use you own 8 bit CRC function (no xor in/out or reflect out)
 * Possibility to disable CRC for more available user data
@@ -37,7 +40,7 @@ Currently not implemented:
 * Flash memory
 * CRC xor in/out or reflect out (and will never implement?)
 * Non transactional write as optional fallback
-* Use more than 8 bits for slot data length
+* Use more than 8 bits for slot data length and/or cluster number
 
 ## Usage
 
@@ -52,38 +55,40 @@ For AVR microcontroller based Arduino boards with integrated EEPROM you can use 
 
 Excample code:
 
-    // Include the header
-    #include <SlotNVM.h>
+```cpp
+// Include the header
+#include <SlotNVM.h>
 
-    // Create an instance
-    SlotNVM16CRC<> slotNVM;
+// Create an instance
+SlotNVM16CRC<> slotNVM;
 
-    int starts = 1;
+int starts = 1;
 
-    void setup() {
-      Serial.begin(115200);
-      
-      // Call begin() once
-      slotNVM.begin();
-      // Init random generator for better wear leveling
-      randomSeed(analogRead(0));
+void setup() {
+  Serial.begin(115200);
+  
+  // Call begin() once
+  slotNVM.begin();
+  // Init random generator for better wear leveling
+  randomSeed(analogRead(0));
 
-      // Now you can use readSlot() and writeSlot()
-      if (slotNVM.readSlot(1, starts)) {
-        Serial.print(F("This is start no. "));
-        Serial.println(starts);
-      } else {
-        Serial.println(F("This is the first start"));
-      }
+  // Now you can use readSlot() and writeSlot()
+  if (slotNVM.readSlot(1, starts)) {
+    Serial.print(F("This is start no. "));
+    Serial.println(starts);
+  } else {
+    Serial.println(F("This is the first start"));
+  }
 
-      if (starts < 3) {
-        ++starts;
-        slotNVM.writeSlot(1, starts);
-      }
-    }
+  if (starts < 3) {
+    ++starts;
+    slotNVM.writeSlot(1, starts);
+  }
+}
 
-    void loop() {
-    }
+void loop() {
+}
+```    
 
 Transactional write is implemented by first write the new data and than delete the old one.
 Therefore you need some free space if you want to overwrite a slot. If you want to ensure that you can
@@ -92,133 +97,137 @@ space to write in an empty slot.
 This feature is useful for configuration data. Otherwise you are not able to change your configuration
 if SlotNVM is full of other data.
 
-    #include <SlotNVM.h>
+```cpp
+#include <SlotNVM.h>
 
-    // struct for my configuration
-    struct configuration {
-      char name[10];
-      int  age;
-    };
+// struct for my configuration
+struct configuration {
+  char name[10];
+  int  age;
+};
 
-    const char DEF_NAME[] PROGMEM = "Arduino";
-    const int  DEF_AGE = 42;
+const char DEF_NAME[] PROGMEM = "Arduino";
+const int  DEF_AGE = 42;
 
-    configuration myConfig;
+configuration myConfig;
 
-    // Create an instance
-    // This SlotNVM reserves some space to always
-    // allow to rewrite slot data with the size
-    // up to the same size like configuration.
-    SlotNVM32CRC<sizeof(configuration)> slotNVM;
+// Create an instance
+// This SlotNVM reserves some space to always
+// allow to rewrite slot data with the size
+// up to the same size like configuration.
+SlotNVM32CRC<sizeof(configuration)> slotNVM;
 
-    const uint8_t CFG_SLOT = slotNVM.S_LAST_SLOT;
+const uint8_t CFG_SLOT = slotNVM.S_LAST_SLOT;
 
-    void setup() {
-      Serial.begin(115200);
-      
-      // Call begin() once
-      slotNVM.begin();
-      // Init random generator for better wear leveling
-      randomSeed(analogRead(0));
+void setup() {
+  Serial.begin(115200);
+  
+  // Call begin() once
+  slotNVM.begin();
+  // Init random generator for better wear leveling
+  randomSeed(analogRead(0));
 
-      if (!slotNVM.readSlot(CFG_SLOT, myConfig)) {
-        // No configuration stored, use default
-        Serial.println(F("Default configuration used"));
-        strcpy_P(myConfig.name, DEF_NAME);
-        myConfig.age = DEF_AGE;
+  if (!slotNVM.readSlot(CFG_SLOT, myConfig)) {
+    // No configuration stored, use default
+    Serial.println(F("Default configuration used"));
+    strcpy_P(myConfig.name, DEF_NAME);
+    myConfig.age = DEF_AGE;
 
-        // Note: Reservation works only for rewriting
-        // a slot not for the first write.
-        // If you want to ensure to change this
-        // configuration you should write it
-        // before there is no space left.
-        slotNVM.writeSlot(CFG_SLOT, myConfig);
-      } else {
-        Serial.println(F("Configuration was loaded"));
-      }
+    // Note: Reservation works only for rewriting
+    // a slot not for the first write.
+    // If you want to ensure to change this
+    // configuration you should write it
+    // before there is no space left.
+    slotNVM.writeSlot(CFG_SLOT, myConfig);
+  } else {
+    Serial.println(F("Configuration was loaded"));
+  }
 
-      // Use other slots for your business
-      for (uint8_t slot = 1; slot < CFG_SLOT; ++slot) {
-        if (slotNVM.isSlotAvailable(slot)) {
-          // Do something with this slot
-          Serial.print(F("Slot "));
-          Serial.print(slot);
-          Serial.println(F(" has some data."));
-        }
-      }
+  // Use other slots for your business
+  for (uint8_t slot = 1; slot < CFG_SLOT; ++slot) {
+    if (slotNVM.isSlotAvailable(slot)) {
+      // Do something with this slot
+      Serial.print(F("Slot "));
+      Serial.print(slot);
+      Serial.println(F(" has some data."));
     }
+  }
+}
 
-    void loop() {
-    }
+void loop() {
+}
+```
 
 The following tables should help to choose the right class. As you can see smaller cluster allows more slots but reduces usable memory size.
 
-| SlotNVM class    | CRC | Bytes / cluster | User data / cluster | Usable data / % |
-| ---------------- | --- | ---------------:| -------------------:| ---------------:|
-| SlotNVM16noCRC<> | no  |              16 |                  11 |           68,8% |
-| SlotNVM32noCRC<> | no  |              32 |                  27 |           84,4% |
-| SlotNVM64noCRC<> | no  |              64 |                  59 |           92,2% |
-| SlotNVM16CRC<>   | yes |              16 |                  10 |           62,5% |
-| SlotNVM32CRC<>   | yes |              32 |                  26 |           81,3% |
-| SlotNVM64CRC<>   | yes |              64 |                  58 |           90,6% |
+| SlotNVM class      | CRC | Bytes / cluster | User data / cluster | Usable data / % |
+| ------------------ | --- | ---------------:| -------------------:| ---------------:|
+| `SlotNVM16noCRC<>` | no  |              16 |                  11 |           68,8% |
+| `SlotNVM32noCRC<>` | no  |              32 |                  27 |           84,4% |
+| `SlotNVM64noCRC<>` | no  |              64 |                  59 |           92,2% |
+| `SlotNVM16CRC<>`   | yes |              16 |                  10 |           62,5% |
+| `SlotNVM32CRC<>`   | yes |              32 |                  26 |           81,3% |
+| `SlotNVM64CRC<>`   | yes |              64 |                  58 |           90,6% |
 
 Arduino Nano Every 256 bytes EEPROM
 
-| SlotNVM class    | Clusters | Slots | Usable size / bytes | RAM usage / byte |
-| ---------------- | --------:| -----:| -------------------:| ----------------:|
-| SlotNVM16noCRC<> |       16 |    16 |                 176 |                5 |
-| SlotNVM32noCRC<> |        8 |     8 |                 216 |                3 |
-| SlotNVM64noCRC<> |        4 |     4 |                 236 |                3 |
-| SlotNVM16CRC<>   |       16 |    16 |                 160 |                5 |
-| SlotNVM32CRC<>   |        8 |     8 |                 208 |                3 |
-| SlotNVM64CRC<>   |        4 |     4 |                 232 |                3 |
+| SlotNVM class      | Clusters | Slots | Usable size / bytes | RAM usage / byte |
+| ------------------ | --------:| -----:| -------------------:| ----------------:|
+| `SlotNVM16noCRC<>` |       16 |    16 |                 176 |                5 |
+| `SlotNVM32noCRC<>` |        8 |     8 |                 216 |                3 |
+| `SlotNVM64noCRC<>` |        4 |     4 |                 236 |                3 |
+| `SlotNVM16CRC<>`   |       16 |    16 |                 160 |                5 |
+| `SlotNVM32CRC<>`   |        8 |     8 |                 208 |                3 |
+| `SlotNVM64CRC<>`   |        4 |     4 |                 232 |                3 |
 
 Arduino Uno / Genuino, Nano, Leonardo, Micro with 1024 bytes EEPROM
 
-| SlotNVM class    | Clusters | Slots | Usable size / bytes | RAM usage / byte |
-| ---------------- | --------:| -----:| -------------------:| ----------------:|
-| SlotNVM16noCRC<> |       64 |    64 |                 704 |               17 |
-| SlotNVM32noCRC<> |       32 |    32 |                 864 |                9 |
-| SlotNVM64noCRC<> |       16 |    16 |                 944 |                5 |
-| SlotNVM16CRC<>   |       64 |    64 |                 640 |               17 |
-| SlotNVM32CRC<>   |       32 |    32 |                 832 |                9 |
-| SlotNVM64CRC<>   |       16 |    16 |                 928 |                5 |
+| SlotNVM class      | Clusters | Slots | Usable size / bytes | RAM usage / byte |
+| ------------------ | --------:| -----:| -------------------:| ----------------:|
+| `SlotNVM16noCRC<>` |       64 |    64 |                 704 |               17 |
+| `SlotNVM32noCRC<>` |       32 |    32 |                 864 |                9 |
+| `SlotNVM64noCRC<>` |       16 |    16 |                 944 |                5 |
+| `SlotNVM16CRC<>`   |       64 |    64 |                 640 |               17 |
+| `SlotNVM32CRC<>`   |       32 |    32 |                 832 |                9 |
+| `SlotNVM64CRC<>`   |       16 |    16 |                 928 |                5 |
 
 Arduino Mega with 4096 bytes EEPROM
 
-| SlotNVM class    | Clusters | Slots | Usable size / bytes | RAM usage / byte |
-| ---------------- | --------:| -----:| -------------------:| ----------------:|
-| SlotNVM16noCRC<> |      256 |   250 |                2816 |               65 |
-| SlotNVM32noCRC<> |      128 |   128 |                3456 |               33 |
-| SlotNVM64noCRC<> |       64 |    64 |                3776 |               17 |
-| SlotNVM16CRC<>   |      256 |   250 |                2560 |               65 |
-| SlotNVM32CRC<>   |      128 |   128 |                3328 |               33 |
-| SlotNVM64CRC<>   |       64 |    64 |                3712 |               17 |
+| SlotNVM class      | Clusters | Slots | Usable size / bytes | RAM usage / byte |
+| ------------------ | --------:| -----:| -------------------:| ----------------:|
+| `SlotNVM16noCRC<>` |      256 |   250 |                2816 |               65 |
+| `SlotNVM32noCRC<>` |      128 |   128 |                3456 |               33 |
+| `SlotNVM64noCRC<>` |       64 |    64 |                3776 |               17 |
+| `SlotNVM16CRC<>`   |      256 |   250 |                2560 |               65 |
+| `SlotNVM32CRC<>`   |      128 |   128 |                3328 |               33 |
+| `SlotNVM64CRC<>`   |       64 |    64 |                3712 |               17 |
 
 If non of the classes abouve fits you needs or if you use a non AVR microcontroller or you want to use external EEPROM
 you need to use the class SlotNVM. Also you need to implement an access class. As a template you can use NVMBase or ArduinoEEPROM.
 
-    // Include the header
-    #include <SlotNVM.h>
-    #include <MyAccessClass.h>
+```cpp
+// Include the header
+#include <SlotNVM.h>
+#include <MyAccessClass.h>
 
-    // Create an instance, with
-    //   no provision
-    //   default slot count (based on cluster count)
-    //   no CRC
-    //   default random function (rand())
-    SlotNVM<MyAccessClass, 32> slotNVM;
+// Create an instance, with
+//   no provision
+//   default slot count (based on cluster count)
+//   no CRC
+//   default random function (rand())
+SlotNVM<MyAccessClass, 32> slotNVM;
 
-    void setup() {
-      Serial.begin(115200);
-      
-      // Call begin() once
-      slotNVM.begin();
-      // Init random generator for better wear leveling
-      srand(analogRead(0));
+void setup() {
+  Serial.begin(115200);
+  
+  // Call begin() once
+  slotNVM.begin();
+  // Init random generator for better wear leveling
+  srand(analogRead(0));
 
-      // ...
-    }
+  // ...
+}
+```
 
 ## Install
 
